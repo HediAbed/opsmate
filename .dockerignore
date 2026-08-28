@@ -1,0 +1,7 @@
+*
+!*.go
+!go.mod
+!go.sum
+!VERSION
+!internal/
+!internal/**

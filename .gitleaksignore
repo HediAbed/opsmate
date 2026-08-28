@@ -1,0 +1,4 @@
+# Exact fingerprints for synthetic examples that existed before the repository was hardened.
+b97cb56b53e274e65be0fa2066fdcdce2c3acae4:internal/service/secret_test.go:generic-api-key:43
+5f4cd2defa03583c585cdc03833da6766160327a:internal/service/secret_test.go:generic-api-key:43
+87bf158c3b9fec1d9e214119f8a1536adb4a4363:k10sopsmate/docs/SCREENS.md:private-key:355

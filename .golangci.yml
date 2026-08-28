@@ -1,0 +1,99 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+  relative-path-mode: gomod
+  modules-download-mode: readonly
+  allow-parallel-runners: true
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - cyclop
+    - dupl
+    - errcheck
+    - errorlint
+    - exhaustive
+    - funlen
+    - gocognit
+    - gosec
+    - govet
+    - ineffassign
+    - misspell
+    - mnd
+    - nestif
+    - nilerr
+    - revive
+    - staticcheck
+    - unused
+  settings:
+    nestif:
+      min-complexity: 4
+    revive:
+      enable-all-rules: false
+      enable-default-rules: false
+      rules:
+        - name: atomic
+        - name: blank-imports
+        - name: confusing-naming
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: datarace
+        - name: duplicated-imports
+        - name: early-return
+        - name: empty-block
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: exported
+          disabled: true
+        - name: forbidden-call-in-wg-go
+        - name: identical-branches
+        - name: identical-ifelseif-branches
+        - name: identical-ifelseif-conditions
+        - name: identical-switch-branches
+        - name: identical-switch-conditions
+        - name: import-shadowing
+        - name: inefficient-map-lookup
+        - name: max-control-nesting
+          arguments:
+            - 3
+        - name: modifies-parameter
+        - name: package-comments
+          disabled: true
+        - name: range-val-address
+        - name: range-val-in-closure
+        - name: receiver-naming
+        - name: redefines-builtin-id
+        - name: redundant-build-tag
+        - name: redundant-import-alias
+        - name: redundant-test-main-exit
+        - name: string-of-int
+        - name: struct-tag
+        - name: superfluous-else
+        - name: time-equal
+        - name: unconditional-recursion
+        - name: unnecessary-format
+        - name: unnecessary-if
+        - name: unnecessary-stmt
+        - name: unreachable-code
+        - name: unused-parameter
+        - name: unused-receiver
+        - name: use-errors-new
+        - name: use-slices-sort
+        - name: var-declaration
+        - name: waitgroup-by-value
+  exclusions:
+    generated: strict
+    warn-unused: true
+
+formatters:
+  enable:
+    - gofmt
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
