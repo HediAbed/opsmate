@@ -1,0 +1,15 @@
+*
+!go.mod
+!go.sum
+!VERSION
+!*.go
+!cmd/
+!cmd/**
+!failure/
+!failure/**
+!internal/
+!internal/**
+!terminal/
+!terminal/**
+!tui/
+!tui/**

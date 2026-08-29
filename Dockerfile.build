@@ -1,0 +1,31 @@
+FROM golang:1.26.6-alpine3.23@sha256:e57c41c1d5864341031181b0db34b9a537bb5773eb6428e4e5bdaea0f9135406 AS build
+
+WORKDIR /src
+
+ENV CGO_ENABLED=0 \
+    GOFLAGS=-mod=readonly \
+    GOPROXY=https://proxy.golang.org \
+    GOSUMDB=sum.golang.org
+
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+COPY . .
+
+ARG GOOS=linux
+ARG GOARCH=amd64
+ARG OUTPUT_NAME=opsmate
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    GOOS="${GOOS}" GOARCH="${GOARCH}" go build \
+        -trimpath \
+        -buildvcs=false \
+        -ldflags="-s -w" \
+        -o "/out/${OUTPUT_NAME}" \
+        ./cmd/opsmate
+
+FROM scratch AS export
+
+COPY --from=build /out/ /
