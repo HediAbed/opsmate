@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
-	"github.com/HediAbed/opsmate/internal/theme"
-	"github.com/HediAbed/opsmate/tui"
+	"github.com/HediAbed/opsmate/internal/ui/component"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 func (m LogsModel) View() string {
@@ -57,7 +57,7 @@ func (m LogsModel) renderLogPanel(contentHeight int) string {
 		)
 	}
 	return logsPanel().Render(
-		tui.Size{
+		component.Size{
 			Width:  m.width - logsPanelGutter,
 			Height: max(1, contentHeight-logsPanelGutter),
 		},
@@ -65,10 +65,8 @@ func (m LogsModel) renderLogPanel(contentHeight int) string {
 	)
 }
 
-// syncLogViewport and renderLogPanel both size against this panel so
-// their chrome math cannot disagree.
-func logsPanel() tui.Panel {
-	return tui.NewPanel(theme.BoxStyle.BorderForeground(theme.NeonCyan))
+func logsPanel() component.Panel {
+	return component.NewPanel(theme.BoxStyle.BorderForeground(theme.NeonCyan))
 }
 
 func (m LogsModel) renderOptionalExplainPanel() string {
@@ -182,7 +180,7 @@ func (m LogsModel) scrollPctLabel() string {
 	if m.autoScroll && m.logView.AtBottom() {
 		return ""
 	}
-	return theme.Dim.Render(fmt.Sprintf("%d%%", tui.ViewportScrollPercent(m.logView)))
+	return theme.Dim.Render(fmt.Sprintf("%d%%", component.ViewportScrollPercent(m.logView)))
 }
 
 func (m LogsModel) renderHelpBar() string {

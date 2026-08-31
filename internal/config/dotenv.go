@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/HediAbed/opsmate/failure"
+	"github.com/HediAbed/opsmate/internal/failure"
 )
 
 var ErrInvalidDotEnvLine = errors.New("invalid dotenv line")

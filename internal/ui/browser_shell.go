@@ -11,8 +11,8 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/HediAbed/opsmate/internal/kube"
-	"github.com/HediAbed/opsmate/internal/theme"
-	"github.com/HediAbed/opsmate/tui"
+	"github.com/HediAbed/opsmate/internal/ui/component"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 const (
@@ -288,8 +288,8 @@ func (m BrowserModel) closeShell() (BrowserModel, tea.Cmd) {
 func (m BrowserModel) renderShellSplit(height int) string {
 	leftW, rightW := shellPaneWidths(m.width)
 
-	tableView := tui.NewPanel(theme.BoxStyle).Render(
-		tui.Size{Width: leftW, Height: height},
+	tableView := component.NewPanel(theme.BoxStyle).Render(
+		component.Size{Width: leftW, Height: height},
 		m.resourceTable.View(),
 	)
 
@@ -304,8 +304,8 @@ func (m BrowserModel) renderShellSplit(height int) string {
 		m.shellView.View(),
 	)
 
-	shellView := tui.NewPanel(theme.BoxStyle.BorderForeground(theme.NeonCyan)).Render(
-		tui.Size{Width: rightW, Height: height},
+	shellView := component.NewPanel(theme.BoxStyle.BorderForeground(theme.NeonCyan)).Render(
+		component.Size{Width: rightW, Height: height},
 		body,
 	)
 
@@ -314,15 +314,15 @@ func (m BrowserModel) renderShellSplit(height int) string {
 
 func (m *BrowserModel) syncShellLayout(height int) {
 	leftWidth, rightWidth := shellPaneWidths(m.width)
-	pane := tui.NewPanel(theme.BoxStyle)
-	tableWidth := max(1, pane.ContentSize(tui.Size{Width: leftWidth, Height: height}).Width)
+	pane := component.NewPanel(theme.BoxStyle)
+	tableWidth := max(1, pane.ContentSize(component.Size{Width: leftWidth, Height: height}).Width)
 	if specs, ok := selectColSpecs(m.resourceType, m.wide); ok {
 		m.resourceTable.SetColumns(computeColumns(tableWidth, specs))
 	}
 	m.resourceTable.SetHeight(max(shellMinViewportHeight, height-shellBorderRows))
 	m.resourceTable.SetWidth(tableWidth)
 
-	shellWidth := max(1, pane.ContentSize(tui.Size{Width: rightWidth, Height: height}).Width)
+	shellWidth := max(1, pane.ContentSize(component.Size{Width: rightWidth, Height: height}).Width)
 	inputWidth := min(shellWidth, max(shellMinInputWidth, shellWidth-len(shellPromptText)))
 	m.shellInput.SetWidth(max(1, inputWidth))
 	m.shellView.SetWidth(shellWidth)

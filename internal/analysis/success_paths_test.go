@@ -6,28 +6,28 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/HediAbed/opsmate/internal/analysis/command"
+	"github.com/HediAbed/opsmate/internal/analysis/provider"
 )
 
-func withTestHTTPProvider(t *testing.T, body string) {
+func serviceWithTestHTTPProvider(t *testing.T, body string) Service {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(body))
 	}))
 	t.Cleanup(srv.Close)
 
-	prev := getActiveProvider()
-	provider, err := NewHTTPProvider(ProviderConfig{URL: srv.URL, Model: "model", APIKey: "key"})
+	client, err := provider.NewHTTPClient(provider.Config{URL: srv.URL, Model: "model", APIKey: "key"})
 	if err != nil {
-		t.Fatalf("NewHTTPProvider() error = %v", err)
+		t.Fatalf("NewHTTPClient() error = %v", err)
 	}
-	provider.client = srv.Client()
-	setActiveProvider(provider)
-	t.Cleanup(func() { setActiveProvider(prev) })
+	return NewService(client)
 }
 
 func TestAnalysisAnalyze_SuccessPathReturnsResponse(t *testing.T) {
-	withTestHTTPProvider(t, `{"choices":[{"message":{"content":"analysis result"}}]}`)
-	msg := Analyze("sys", "user")().(AnalysisMsg)
+	service := serviceWithTestHTTPProvider(t, `{"choices":[{"message":{"content":"analysis result"}}]}`)
+	msg := service.Analyze("sys", "user")().(AnalysisMsg)
 	if msg.Err != nil {
 		t.Fatalf("err: %v", msg.Err)
 	}
@@ -37,16 +37,16 @@ func TestAnalysisAnalyze_SuccessPathReturnsResponse(t *testing.T) {
 }
 
 func TestAnalysisAnalyze_EmptyResponseIsError(t *testing.T) {
-	withTestHTTPProvider(t, `{"choices":[{"message":{"content":""}}]}`)
-	msg := Analyze("sys", "user")().(AnalysisMsg)
+	service := serviceWithTestHTTPProvider(t, `{"choices":[{"message":{"content":""}}]}`)
+	msg := service.Analyze("sys", "user")().(AnalysisMsg)
 	if msg.Err == nil {
 		t.Error("empty response should error")
 	}
 }
 
 func TestAnalysisGenerateCommand_SuccessReturnsCommandAndExplanation(t *testing.T) {
-	withTestHTTPProvider(t, `{"choices":[{"message":{"content":"kubectl get pods\nlists all pods"}}]}`)
-	msg := GenerateCommand("list pods", "default")().(GeneratedCommandMsg)
+	service := serviceWithTestHTTPProvider(t, `{"choices":[{"message":{"content":"kubectl get pods\nlists all pods"}}]}`)
+	msg := service.GenerateCommand("list pods", "default")().(GeneratedCommandMsg)
 	if msg.Err != nil {
 		t.Fatalf("err: %v", msg.Err)
 	}
@@ -64,17 +64,17 @@ func TestAnalysisGenerateCommand_RejectsCommandsThatCannotExecute(t *testing.T) 
 		response string
 		wantErr  error
 	}{
-		{name: "mutating", response: "kubectl delete pod checkout", wantErr: ErrForbiddenCommand},
-		{name: "malformed", response: "not a kubectl command", wantErr: ErrForbiddenCommand},
-		{name: "alternate target", response: "kubectl get pods --server=https://other.example", wantErr: ErrForbiddenCommand},
-		{name: "sensitive", response: "kubectl get secrets -o yaml", wantErr: ErrSensitiveDataCommand},
-		{name: "different namespace", response: "kubectl get pods -n other", wantErr: ErrCommandScope},
-		{name: "all namespaces", response: "kubectl get pods -A", wantErr: ErrCommandScope},
+		{name: "mutating", response: "kubectl delete pod checkout", wantErr: command.ErrForbiddenCommand},
+		{name: "malformed", response: "not a kubectl command", wantErr: command.ErrForbiddenCommand},
+		{name: "alternate target", response: "kubectl get pods --server=https://other.example", wantErr: command.ErrForbiddenCommand},
+		{name: "sensitive", response: "kubectl get secrets -o yaml", wantErr: command.ErrSensitiveDataCommand},
+		{name: "different namespace", response: "kubectl get pods -n other", wantErr: command.ErrCommandScope},
+		{name: "all namespaces", response: "kubectl get pods -A", wantErr: command.ErrCommandScope},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			withTestHTTPProvider(t, `{"choices":[{"message":{"content":"`+test.response+`"}}]}`)
-			msg := GenerateCommand("inspect the cluster", "default")().(GeneratedCommandMsg)
+			service := serviceWithTestHTTPProvider(t, `{"choices":[{"message":{"content":"`+test.response+`"}}]}`)
+			msg := service.GenerateCommand("inspect the cluster", "default")().(GeneratedCommandMsg)
 			if !errors.Is(msg.Err, test.wantErr) {
 				t.Fatalf("error = %v, want %v", msg.Err, test.wantErr)
 			}
@@ -86,8 +86,8 @@ func TestAnalysisGenerateCommand_RejectsCommandsThatCannotExecute(t *testing.T) 
 }
 
 func TestAnalysisExplainLogLine_SuccessPath(t *testing.T) {
-	withTestHTTPProvider(t, `{"choices":[{"message":{"content":"this means the container OOMed"}}]}`)
-	msg := ExplainLogLine("oom-killer", "context", "pod-x")().(LogExplanationMsg)
+	service := serviceWithTestHTTPProvider(t, `{"choices":[{"message":{"content":"this means the container OOMed"}}]}`)
+	msg := service.ExplainLogLine("oom-killer", "context", "pod-x")().(LogExplanationMsg)
 	if msg.Err != nil {
 		t.Fatalf("err: %v", msg.Err)
 	}
@@ -97,8 +97,8 @@ func TestAnalysisExplainLogLine_SuccessPath(t *testing.T) {
 }
 
 func TestAnalysisClusterHealth_SuccessPath(t *testing.T) {
-	withTestHTTPProvider(t, `{"choices":[{"message":{"content":"cluster looks healthy"}}]}`)
-	msg := ClusterHealth("dashboard ctx")().(DashboardHealthMsg)
+	service := serviceWithTestHTTPProvider(t, `{"choices":[{"message":{"content":"cluster looks healthy"}}]}`)
+	msg := service.ClusterHealth("dashboard ctx")().(DashboardHealthMsg)
 	if msg.Err != nil {
 		t.Fatalf("err: %v", msg.Err)
 	}
@@ -108,8 +108,8 @@ func TestAnalysisClusterHealth_SuccessPath(t *testing.T) {
 }
 
 func TestAnalysisDescribeSummary_SuccessPath(t *testing.T) {
-	withTestHTTPProvider(t, `{"choices":[{"message":{"content":"pod is running and healthy"}}]}`)
-	msg := DescribeSummary("pod", "alpha", "describe text")().(DescribeSummaryMsg)
+	service := serviceWithTestHTTPProvider(t, `{"choices":[{"message":{"content":"pod is running and healthy"}}]}`)
+	msg := service.DescribeSummary("pod", "alpha", "describe text")().(DescribeSummaryMsg)
 	if msg.Err != nil {
 		t.Fatalf("err: %v", msg.Err)
 	}
@@ -120,8 +120,8 @@ func TestAnalysisDescribeSummary_SuccessPath(t *testing.T) {
 
 func TestAnalysisDescribeSummary_TruncatesLongInput(t *testing.T) {
 	long := strings.Repeat("x", 5000)
-	withTestHTTPProvider(t, `{"choices":[{"message":{"content":"ok"}}]}`)
-	msg := DescribeSummary("pod", "alpha", long)().(DescribeSummaryMsg)
+	service := serviceWithTestHTTPProvider(t, `{"choices":[{"message":{"content":"ok"}}]}`)
+	msg := service.DescribeSummary("pod", "alpha", long)().(DescribeSummaryMsg)
 	if msg.Err != nil {
 		t.Errorf("err: %v", msg.Err)
 	}

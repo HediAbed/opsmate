@@ -6,7 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/HediAbed/opsmate/failure"
+	"github.com/HediAbed/opsmate/internal/analysis/provider"
+	"github.com/HediAbed/opsmate/internal/failure"
 )
 
 type configuredProvider struct {
@@ -17,19 +18,12 @@ type configuredProvider struct {
 
 func (*configuredProvider) Name() string { return "configured" }
 
-func (provider *configuredProvider) Chat(ctx context.Context, _, _ string) (string, error) {
-	if provider.wait {
+func (client *configuredProvider) Chat(ctx context.Context, _, _ string) (string, error) {
+	if client.wait {
 		<-ctx.Done()
 		return "", ctx.Err()
 	}
-	return provider.response, provider.err
-}
-
-func installConfiguredProvider(t *testing.T, provider Provider) {
-	t.Helper()
-	previous := getActiveProvider()
-	setActiveProvider(provider)
-	t.Cleanup(func() { setActiveProvider(previous) })
+	return client.response, client.err
 }
 
 func TestChatWithTimeoutClassifiesFailures(t *testing.T) {
@@ -63,21 +57,21 @@ func TestChatWithTimeoutClassifiesFailures(t *testing.T) {
 		"system",
 		"user",
 	)
-	if !errors.Is(err, ErrProviderEmptyResponse) {
+	if !errors.Is(err, provider.ErrProviderEmptyResponse) {
 		t.Fatalf("error = %v, want empty-response classification", err)
 	}
 }
 
 func TestProviderCommandsPropagateProviderFailure(t *testing.T) {
 	sentinel := errors.New("provider unavailable")
-	installConfiguredProvider(t, &configuredProvider{err: sentinel})
+	service := NewService(&configuredProvider{err: sentinel})
 
 	results := []error{
-		Analyze("system", "question")().(AnalysisMsg).Err,
-		GenerateCommand("show pods", "default")().(GeneratedCommandMsg).Err,
-		ExplainLogLine("line", "context", "pod")().(LogExplanationMsg).Err,
-		ClusterHealth("context")().(DashboardHealthMsg).Err,
-		DescribeSummary("pod", "web", "details")().(DescribeSummaryMsg).Err,
+		service.Analyze("system", "question")().(AnalysisMsg).Err,
+		service.GenerateCommand("show pods", "default")().(GeneratedCommandMsg).Err,
+		service.ExplainLogLine("line", "context", "pod")().(LogExplanationMsg).Err,
+		service.ClusterHealth("context")().(DashboardHealthMsg).Err,
+		service.DescribeSummary("pod", "web", "details")().(DescribeSummaryMsg).Err,
 	}
 	for index, err := range results {
 		if !errors.Is(err, sentinel) {
@@ -87,26 +81,26 @@ func TestProviderCommandsPropagateProviderFailure(t *testing.T) {
 }
 
 func TestProviderCommandsRejectEmptyProviderResponses(t *testing.T) {
-	installConfiguredProvider(t, &configuredProvider{response: ""})
+	service := NewService(&configuredProvider{response: ""})
 
 	results := []error{
-		Analyze("system", "question")().(AnalysisMsg).Err,
-		GenerateCommand("show pods", "default")().(GeneratedCommandMsg).Err,
-		ExplainLogLine("line", "context", "pod")().(LogExplanationMsg).Err,
-		ClusterHealth("context")().(DashboardHealthMsg).Err,
-		DescribeSummary("pod", "web", "details")().(DescribeSummaryMsg).Err,
+		service.Analyze("system", "question")().(AnalysisMsg).Err,
+		service.GenerateCommand("show pods", "default")().(GeneratedCommandMsg).Err,
+		service.ExplainLogLine("line", "context", "pod")().(LogExplanationMsg).Err,
+		service.ClusterHealth("context")().(DashboardHealthMsg).Err,
+		service.DescribeSummary("pod", "web", "details")().(DescribeSummaryMsg).Err,
 	}
 	for index, err := range results {
-		if !errors.Is(err, ErrProviderEmptyResponse) {
+		if !errors.Is(err, provider.ErrProviderEmptyResponse) {
 			t.Errorf("result %d error = %v, want empty-response classification", index, err)
 		}
 	}
 }
 
 func TestAnalysisAnalyzeStreamFallsBackForNonStreamingProvider(t *testing.T) {
-	installConfiguredProvider(t, &configuredProvider{response: "answer"})
+	service := NewService(&configuredProvider{response: "answer"})
 
-	start, events, cancel := AnalyzeStream("system", "question")
+	start, events, cancel := service.AnalyzeStream("system", "question")
 	defer cancel()
 	if events != nil {
 		t.Fatal("fallback provider unexpectedly returned a stream")

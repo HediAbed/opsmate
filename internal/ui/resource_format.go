@@ -7,7 +7,6 @@ import (
 
 const labelSelectorAll = "<all>"
 
-// pvcAccessModeShortNames mirrors kubectl's access-mode abbreviations.
 var pvcAccessModeShortNames = map[string]string{
 	"ReadWriteOnce":    "RWO",
 	"ReadOnlyMany":     "ROX",
@@ -34,7 +33,6 @@ func formatBoolColumn(value bool) string {
 	return "False"
 }
 
-// formatLabelSelector returns labels in stable key order.
 func formatLabelSelector(labels map[string]string) string {
 	if len(labels) == 0 {
 		return labelSelectorAll

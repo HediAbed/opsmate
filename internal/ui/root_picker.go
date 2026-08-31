@@ -7,8 +7,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/HediAbed/opsmate/internal/cluster"
-	"github.com/HediAbed/opsmate/internal/theme"
-	"github.com/HediAbed/opsmate/tui"
+	"github.com/HediAbed/opsmate/internal/ui/component"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 func (m RootModel) handleNSPicker(key string) (tea.Model, tea.Cmd) {
@@ -141,7 +141,7 @@ func (m RootModel) renderNSPicker(height int) string {
 		Border(lipgloss.ThickBorder()).
 		BorderForeground(theme.NeonCyan).
 		Padding(0, rootHorizontalPadding).
-		Width(tui.FitModalWidth(nsPickerModalDesiredWidth, m.width)).
+		Width(component.FitModalWidth(nsPickerModalDesiredWidth, m.width)).
 		MaxWidth(m.width).
 		Render(content)
 	return lipgloss.Place(m.width, height, lipgloss.Center, lipgloss.Center, box)
@@ -227,7 +227,7 @@ func (m RootModel) renderCtxPicker(height int) string {
 		Border(lipgloss.ThickBorder()).
 		BorderForeground(theme.ElectricPurp).
 		Padding(0, rootHorizontalPadding).
-		Width(tui.FitModalWidth(ctxPickerModalDesiredWidth, m.width)).
+		Width(component.FitModalWidth(ctxPickerModalDesiredWidth, m.width)).
 		MaxWidth(m.width).
 		Render(content)
 	return lipgloss.Place(m.width, height, lipgloss.Center, lipgloss.Center, box)
@@ -241,7 +241,6 @@ func contextPickerItems(contexts []cluster.KubeContext) []rootPickerItem {
 	return items
 }
 
-// switchNamespace updates every screen and persists the selection.
 func (m *RootModel) switchNamespace() tea.Cmd {
 	m.deactivateScreen(m.screen)
 	m.dashboard.SetNamespace(m.namespace)

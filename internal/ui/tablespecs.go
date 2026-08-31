@@ -12,15 +12,10 @@ type colSpec struct {
 }
 
 const (
-	tableHeightHint  = 10
-	tableCellPadding = 2
-	// tableHeaderChromeRows: top border (1) + header row (1) + header
-	// separator (1), which is rendered before data rows.
-	// Used by mouse-click handlers to translate Y → row index.
+	tableHeightHint       = 10
+	tableCellPadding      = 2
 	tableHeaderChromeRows = 3
-	// tableWheelStep is the cursor delta per mouse-wheel notch. Matches
-	// the browser screen so wheel speed feels uniform across screens.
-	tableWheelStep = 3
+	tableWheelStep        = 3
 
 	columnWidthNarrow    = 6
 	columnWidthCompact   = 8
@@ -168,7 +163,6 @@ var resourceColSpecs = map[string][]colSpec{
 	},
 }
 
-// resourceColSpecsWide adds optional detail columns for selected resources.
 var resourceColSpecsWide = map[string][]colSpec{
 	resourceTypePods: {
 		{Title: "NAME", Flex: columnFlexHalf, Min: columnMinimumCompact},

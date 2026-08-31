@@ -12,7 +12,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/HediAbed/opsmate/failure"
+	"github.com/HediAbed/opsmate/internal/failure"
 )
 
 type snapshotContextManager struct {
@@ -349,14 +349,14 @@ func successfulSnapshotReader() *snapshotResourceReader {
 	}
 }
 
-func recordSnapshotNamespace[T any](namespaces chan<- string, items []T) func(context.Context, string) ([]T, error) {
+func recordSnapshotNamespace[T interface{}](namespaces chan<- string, items []T) func(context.Context, string) ([]T, error) {
 	return func(_ context.Context, namespace string) ([]T, error) {
 		namespaces <- namespace
 		return items, nil
 	}
 }
 
-func failingSnapshotRead[T any](err error) func(context.Context, string) ([]T, error) {
+func failingSnapshotRead[T interface{}](err error) func(context.Context, string) ([]T, error) {
 	return func(context.Context, string) ([]T, error) {
 		return nil, err
 	}

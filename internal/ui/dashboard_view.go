@@ -7,8 +7,8 @@ import (
 
 	"charm.land/bubbles/v2/viewport"
 	"charm.land/lipgloss/v2"
-	"github.com/HediAbed/opsmate/internal/theme"
-	"github.com/HediAbed/opsmate/tui"
+	"github.com/HediAbed/opsmate/internal/ui/component"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 func (m DashboardModel) View() string {
@@ -23,7 +23,7 @@ func (m DashboardModel) View() string {
 		bodyView.SetContent(body)
 		help := sections.help
 		if hint := dashboardScrollHint(bodyView); hint != "" {
-			help = tui.AppendHint(help, theme.Dim.Render(hint), m.width)
+			help = component.AppendHint(help, theme.Dim.Render(hint), m.width)
 		}
 		return bodyView.View() + "\n" + help
 	}
@@ -117,11 +117,11 @@ func (m *DashboardModel) syncDashboardLayout() {
 }
 
 func dashboardScrollHint(view viewport.Model) string {
-	direction := tui.ViewportScrollDirection(view)
-	if direction == tui.ScrollNone {
+	direction := component.ViewportScrollDirection(view)
+	if direction == component.ScrollNone {
 		return ""
 	}
-	return fmt.Sprintf("%d%% %s", tui.ViewportScrollPercent(view), direction.Arrows())
+	return fmt.Sprintf("%d%% %s", component.ViewportScrollPercent(view), direction.Arrows())
 }
 
 func (m DashboardModel) renderTitleBar(width int) string {

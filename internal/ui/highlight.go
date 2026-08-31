@@ -15,10 +15,6 @@ const (
 	yamlFormatterName = "terminal16m"
 )
 
-// HighlightYAML returns the input colorized with ANSI truecolor escape
-// sequences for YAML syntax. Highlighting is best-effort: if the lexer,
-// style, or formatter fails to resolve, the original string is returned
-// unchanged so callers can still display the raw YAML.
 func HighlightYAML(src string) string {
 	return highlightYAMLWithNames(src, yamlLexerName, yamlStyleName, yamlFormatterName)
 }

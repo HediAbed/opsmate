@@ -8,7 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/HediAbed/opsmate/failure"
+	analysisprovider "github.com/HediAbed/opsmate/internal/analysis/provider"
+	"github.com/HediAbed/opsmate/internal/failure"
 )
 
 type clusterContextProvider struct {
@@ -30,10 +31,10 @@ func (p *clusterContextProvider) Chat(_ context.Context, systemPrompt, userMessa
 }
 
 func TestAnalyzeClusterContextUsesTypedUntrustedPayload(t *testing.T) {
-	provider := &clusterContextProvider{name: "test", response: "cluster is healthy"}
+	client := &clusterContextProvider{name: "test", response: "cluster is healthy"}
 	message := analyzeClusterContextWithProvider(
 		context.Background(),
-		provider,
+		client,
 		"system rules",
 		"is the cluster healthy?",
 		"previous answer",
@@ -42,11 +43,11 @@ func TestAnalyzeClusterContextUsesTypedUntrustedPayload(t *testing.T) {
 	if message.Err != nil || message.Response != "cluster is healthy" {
 		t.Fatalf("analyzeClusterContext() = %+v", message)
 	}
-	if !strings.Contains(provider.systemPrompt, "read-only Kubernetes API calls") {
-		t.Fatalf("system prompt = %q", provider.systemPrompt)
+	if !strings.Contains(client.systemPrompt, "read-only Kubernetes API calls") {
+		t.Fatalf("system prompt = %q", client.systemPrompt)
 	}
 	var payload clusterAnalysisRequest
-	if err := json.Unmarshal([]byte(provider.userMessage), &payload); err != nil {
+	if err := json.Unmarshal([]byte(client.userMessage), &payload); err != nil {
 		t.Fatalf("decode payload: %v", err)
 	}
 	want := clusterAnalysisRequest{
@@ -64,12 +65,12 @@ func TestAnalyzeClusterContextRejectsInvalidProviderResults(t *testing.T) {
 	tests := []struct {
 		name     string
 		ctx      context.Context
-		provider Provider
+		provider analysisprovider.Client
 		cause    error
 	}{
-		{name: "missing context", provider: &clusterContextProvider{name: "test"}, cause: ErrProviderContextRequired},
+		{name: "missing context", provider: &clusterContextProvider{name: "test"}, cause: analysisprovider.ErrProviderContextRequired},
 		{name: "provider failure", ctx: context.Background(), provider: &clusterContextProvider{name: "test", err: sentinel}, cause: sentinel},
-		{name: "empty response", ctx: context.Background(), provider: &clusterContextProvider{name: "test", response: "  "}, cause: ErrProviderEmptyResponse},
+		{name: "empty response", ctx: context.Background(), provider: &clusterContextProvider{name: "test", response: "  "}, cause: analysisprovider.ErrProviderEmptyResponse},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -83,10 +84,10 @@ func TestAnalyzeClusterContextRejectsInvalidProviderResults(t *testing.T) {
 
 func TestAnalyzeClusterContextReportsEncodingFailure(t *testing.T) {
 	sentinel := errors.New("encode failed")
-	provider := &clusterContextProvider{name: "test"}
+	client := &clusterContextProvider{name: "test"}
 	message := analyzeClusterContextWithEncoder(
 		context.Background(),
-		provider,
+		client,
 		"system",
 		"question",
 		"memory",
@@ -96,32 +97,30 @@ func TestAnalyzeClusterContextReportsEncodingFailure(t *testing.T) {
 	if !errors.Is(message.Err, sentinel) {
 		t.Fatalf("error = %v, want encoding failure", message.Err)
 	}
-	var providerErr *ProviderError
+	var providerErr *analysisprovider.Error
 	if !errors.As(message.Err, &providerErr) || providerErr.Operation != failure.OperationEncode {
 		t.Fatalf("error = %#v, want encode ProviderError", message.Err)
 	}
 }
 
 func TestAnalyzeClusterContextUsesConfiguredProvider(t *testing.T) {
-	setActiveProvider(nil)
-	t.Cleanup(func() { setActiveProvider(nil) })
-	if message := AnalyzeClusterContext(context.Background(), "system", "question", "", "snapshot"); !errors.Is(message.Err, ErrProviderNotConfigured) {
+	disabled := NewService(nil)
+	if message := disabled.AnalyzeClusterContext(context.Background(), "system", "question", "", "snapshot"); !errors.Is(message.Err, analysisprovider.ErrProviderNotConfigured) {
 		t.Fatalf("AnalyzeClusterContext() error = %v, want missing provider", message.Err)
 	}
 
-	provider := &clusterContextProvider{name: "test", response: "answer"}
-	setActiveProvider(provider)
-	message := AnalyzeClusterContext(context.Background(), "system", "question", "", "snapshot")
+	configured := NewService(&clusterContextProvider{name: "test", response: "answer"})
+	message := configured.AnalyzeClusterContext(context.Background(), "system", "question", "", "snapshot")
 	if message.Err != nil || message.Response != "answer" {
 		t.Fatalf("AnalyzeClusterContext() = %+v", message)
 	}
 }
 
 func TestAnalyzeClusterContextBoundsSnapshot(t *testing.T) {
-	provider := &clusterContextProvider{name: "test", response: "answer"}
+	client := &clusterContextProvider{name: "test", response: "answer"}
 	message := analyzeClusterContextWithProvider(
 		context.Background(),
-		provider,
+		client,
 		"system",
 		"question",
 		"",
@@ -131,7 +130,7 @@ func TestAnalyzeClusterContextBoundsSnapshot(t *testing.T) {
 		t.Fatalf("analyzeClusterContext() error = %v", message.Err)
 	}
 	var payload clusterAnalysisRequest
-	if err := json.Unmarshal([]byte(provider.userMessage), &payload); err != nil {
+	if err := json.Unmarshal([]byte(client.userMessage), &payload); err != nil {
 		t.Fatalf("decode payload: %v", err)
 	}
 	if len([]rune(payload.ClusterContext)) != maximumContextRunes {

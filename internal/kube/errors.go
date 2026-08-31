@@ -10,7 +10,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/HediAbed/opsmate/failure"
+	"github.com/HediAbed/opsmate/internal/failure"
 )
 
 var (
@@ -59,7 +59,6 @@ var (
 	ErrSnapshotCollectorRequired  = errors.New("kubernetes snapshot collector is required")
 )
 
-// Operation aliases the shared vocabulary so kube call sites stay concise.
 type Operation = failure.Operation
 
 const (

@@ -6,8 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/HediAbed/opsmate/internal/theme"
-	"github.com/HediAbed/opsmate/tui"
+	"github.com/HediAbed/opsmate/internal/ui/component"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 func (m RootModel) View() tea.View {
@@ -307,7 +307,6 @@ func analysisPanelWidth(totalWidth int) int {
 	return min(max(preferred, minimum), maximum)
 }
 
-// shiftMouseX translates a typed mouse event horizontally.
 func shiftMouseX(message tea.MouseMsg, horizontalOffset int) tea.Msg {
 	switch event := message.(type) {
 	case tea.MouseClickMsg:
@@ -365,7 +364,7 @@ func (m RootModel) renderHelpOverlay(height int) string {
 		Border(lipgloss.ThickBorder()).
 		BorderForeground(theme.NeonCyan).
 		Padding(0, rootHorizontalPadding).
-		Width(tui.FitModalWidth(helpModalDesiredWidth, m.width)).
+		Width(component.FitModalWidth(helpModalDesiredWidth, m.width)).
 		MaxWidth(m.width).
 		Render(content)
 	return lipgloss.Place(m.width, height, lipgloss.Center, lipgloss.Center, box)

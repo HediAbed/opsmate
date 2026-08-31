@@ -8,7 +8,7 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"github.com/HediAbed/opsmate/internal/kube"
-	"github.com/HediAbed/opsmate/internal/theme"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 func (m BrowserModel) handleKey(msg tea.KeyPressMsg) (BrowserModel, tea.Cmd) {

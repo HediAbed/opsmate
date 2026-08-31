@@ -8,8 +8,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/HediAbed/opsmate/failure"
 	"github.com/HediAbed/opsmate/internal/cluster"
+	"github.com/HediAbed/opsmate/internal/failure"
 	"github.com/HediAbed/opsmate/internal/kube"
 )
 

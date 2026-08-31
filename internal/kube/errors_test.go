@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	"github.com/HediAbed/opsmate/failure"
+	"github.com/HediAbed/opsmate/internal/failure"
 )
 
 func TestErrorFormattingAndUnwrap(t *testing.T) {

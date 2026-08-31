@@ -3,8 +3,6 @@ package ui
 import (
 	"strings"
 	"testing"
-
-	"github.com/HediAbed/opsmate/internal/analysis"
 )
 
 func TestAnalysisPanelModel_Init_ReturnsBlinkCmd(t *testing.T) {
@@ -63,8 +61,9 @@ func TestAnalysisPanelModel_SetScreenContext_StoredForLaterQueries(t *testing.T)
 func TestAnalysisPanelModel_RefreshProviderName_UsesActiveProvider(t *testing.T) {
 	m := NewAnalysisPanelModel()
 	m.providerName = "stale"
+	m.providerNameOf = func() string { return "configured" }
 	m.RefreshProviderName()
-	if want := sanitizeTerminalText(analysis.ProviderName()); m.providerName != want {
+	if want := "configured"; m.providerName != want {
 		t.Fatalf("providerName = %q, want %q", m.providerName, want)
 	}
 }

@@ -5,8 +5,8 @@ import (
 
 	"charm.land/bubbles/v2/table"
 	"charm.land/lipgloss/v2"
-	"github.com/HediAbed/opsmate/internal/theme"
-	"github.com/HediAbed/opsmate/tui"
+	"github.com/HediAbed/opsmate/internal/ui/component"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 func (m *BrowserModel) recalcLayout() {
@@ -66,7 +66,7 @@ func (m *BrowserModel) syncVerticalDetailLayout(height int) {
 
 func (m *BrowserModel) syncHorizontalDetailLayout(height int) {
 	leftWidth, rightWidth := browserHorizontalPaneWidths(m.width)
-	tableArea := tui.NewPanel(theme.BoxStyle).ContentSize(tui.Size{Width: leftWidth - browserPanelGutter, Height: height})
+	tableArea := component.NewPanel(theme.BoxStyle).ContentSize(component.Size{Width: leftWidth - browserPanelGutter, Height: height})
 	tableWidth := max(1, tableArea.Width)
 	if specs, ok := selectColSpecs(m.resourceType, m.wide); ok {
 		m.resourceTable.SetColumns(computeColumns(tableWidth, specs))

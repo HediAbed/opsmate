@@ -11,7 +11,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/HediAbed/opsmate/internal/cluster"
-	"github.com/HediAbed/opsmate/internal/theme"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 func (m DashboardModel) renderTopConsumers(innerW int) string {
@@ -74,7 +74,6 @@ func sortedEventsNewestFirst(events []cluster.Event) []cluster.Event {
 	return append(warnings, others...)
 }
 
-// parseMilli parses a Kubernetes CPU value like "100m" or "2" into millicores.
 func parseMilli(value string) int {
 	value = strings.TrimSpace(value)
 	if value == "" || value == "-" {

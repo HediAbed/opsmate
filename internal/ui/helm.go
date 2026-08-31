@@ -13,11 +13,10 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/HediAbed/opsmate/internal/kube"
-	"github.com/HediAbed/opsmate/internal/theme"
-	"github.com/HediAbed/opsmate/tui"
+	"github.com/HediAbed/opsmate/internal/ui/component"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
-// HelmModel lists releases and displays configured values.
 type HelmModel struct {
 	width     int
 	height    int
@@ -130,7 +129,6 @@ func (m *HelmModel) SetNamespace(namespace string) tea.Cmd {
 
 func (HelmModel) HasInputFocus() bool { return false }
 
-// AnalysisOverlayBounds returns the table region available to the analysis panel.
 func (m HelmModel) AnalysisOverlayBounds(totalHeight int) (topOffset, panelHeight, bottomOffset int) {
 	top := lipgloss.Height(m.renderTitleBar())
 	bottom := lipgloss.Height(m.renderHelpBar())
@@ -421,7 +419,7 @@ func (m HelmModel) renderTitleBar() string {
 	if m.statusMsg != "" {
 		bar += "  " + m.statusMsg
 	}
-	if cursor := tui.TableCursorLabel(m.releaseTable.Cursor(), len(m.releases)); cursor != "" {
+	if cursor := component.TableCursorLabel(m.releaseTable.Cursor(), len(m.releases)); cursor != "" {
 		bar += "  " + theme.Dim.Render(cursor)
 	}
 	return theme.StatusBarItem.Width(m.width).MaxWidth(m.width).Render(bar)

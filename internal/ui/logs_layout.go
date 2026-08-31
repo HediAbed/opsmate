@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
-	"github.com/HediAbed/opsmate/internal/theme"
-	"github.com/HediAbed/opsmate/tui"
+	"github.com/HediAbed/opsmate/internal/ui/component"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 func (m LogsModel) HasInputFocus() bool {
@@ -17,7 +17,7 @@ func (m *LogsModel) recalcLayout() {
 }
 
 func (m *LogsModel) syncLogViewport() {
-	inner := logsPanel().ContentSize(tui.Size{
+	inner := logsPanel().ContentSize(component.Size{
 		Width:  m.width - logsPanelGutter,
 		Height: m.logContentHeight(),
 	})

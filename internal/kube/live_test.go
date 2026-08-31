@@ -24,7 +24,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	metricsfake "k8s.io/metrics/pkg/client/clientset/versioned/fake"
 
-	"github.com/HediAbed/opsmate/failure"
+	"github.com/HediAbed/opsmate/internal/failure"
 )
 
 const liveSetTestTimeout = 10 * time.Second
@@ -353,7 +353,7 @@ func TestSecretObserverDoesNotRetainAnnotations(t *testing.T) {
 	}
 }
 
-func observerProbeStarter[T any](observe func(context.Context, string) (LiveSet[T], error)) func() (liveSetProbe, error) {
+func observerProbeStarter[T interface{}](observe func(context.Context, string) (LiveSet[T], error)) func() (liveSetProbe, error) {
 	return func() (liveSetProbe, error) {
 		set, err := observe(context.Background(), testNamespace)
 		return probeLiveSet(set, err), err
@@ -511,7 +511,7 @@ func TestLiveSetStopDoesNotWaitForInformerShutdown(t *testing.T) {
 }
 
 func TestLiveSetStateReportsInvalidStoreObjects(t *testing.T) {
-	keyStore := cache.NewStore(func(any) (string, error) { return "stored", nil })
+	keyStore := cache.NewStore(func(interface{}) (string, error) { return "stored", nil })
 	if err := keyStore.Add("not a resource"); err != nil {
 		t.Fatalf("Add() error = %v", err)
 	}
@@ -604,7 +604,7 @@ func livePod(name string, phase corev1.PodPhase) *corev1.Pod {
 	}
 }
 
-func waitForLiveState[T any](t *testing.T, set LiveSet[T], ready func(LiveState[T]) bool) LiveState[T] {
+func waitForLiveState[T interface{}](t *testing.T, set LiveSet[T], ready func(LiveState[T]) bool) LiveState[T] {
 	t.Helper()
 	deadline := time.NewTimer(liveSetTestTimeout)
 	defer deadline.Stop()
@@ -652,7 +652,7 @@ func assertChangesClosed(t *testing.T, changes <-chan struct{}) {
 	}
 }
 
-func probeLiveSet[T any](set LiveSet[T], err error) liveSetProbe {
+func probeLiveSet[T interface{}](set LiveSet[T], err error) liveSetProbe {
 	if err != nil || set == nil {
 		return liveSetProbe{}
 	}

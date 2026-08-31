@@ -11,7 +11,7 @@ import (
 
 	"github.com/HediAbed/opsmate/internal/analysis"
 	"github.com/HediAbed/opsmate/internal/cluster"
-	"github.com/HediAbed/opsmate/internal/theme"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 const (
@@ -43,13 +43,13 @@ func newLogTickMessage(time.Time) tea.Msg {
 	return tickMsg{}
 }
 
-// LogsModel displays, filters, and inspects logs for one pod and container.
 type LogsModel struct {
 	width      int
 	height     int
 	namespace  string
 	cluster    clusterCommands
 	operations clusterOperations
+	analysis   analysis.Service
 
 	pods                 []cluster.Pod
 	podCursor            int
@@ -127,6 +127,15 @@ type renderedLogLine struct {
 const maxColorizeCacheSize = 4000
 
 func NewLogsModel(namespace string, commands clusterCommands, operations clusterOperations) LogsModel {
+	return newLogsWithAnalysis(namespace, commands, operations, analysis.NewService(nil))
+}
+
+func newLogsWithAnalysis(
+	namespace string,
+	commands clusterCommands,
+	operations clusterOperations,
+	analysisService analysis.Service,
+) LogsModel {
 	logView := newViewport(initialScreenWidth, initialViewportHeight)
 	logView.SoftWrap = true
 
@@ -147,6 +156,7 @@ func NewLogsModel(namespace string, commands clusterCommands, operations cluster
 		namespace:   namespace,
 		cluster:     commands,
 		operations:  operations,
+		analysis:    analysisService,
 		logView:     logView,
 		filterInput: filterInput,
 		spinner:     loadingSpinner,

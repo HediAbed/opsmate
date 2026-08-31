@@ -6,8 +6,8 @@ import (
 	"charm.land/bubbles/v2/table"
 	"charm.land/lipgloss/v2"
 	"github.com/HediAbed/opsmate/internal/cluster"
-	"github.com/HediAbed/opsmate/internal/theme"
-	"github.com/HediAbed/opsmate/tui"
+	"github.com/HediAbed/opsmate/internal/ui/component"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 func (m CRDsModel) View() string {
@@ -50,7 +50,7 @@ func (m CRDsModel) renderTitleBar() string {
 	if m.statusMsg != "" {
 		bar += "  " + m.statusMsg
 	}
-	if cursor := tui.TableCursorLabel(m.activeTableCursor()); cursor != "" {
+	if cursor := component.TableCursorLabel(m.activeTableCursor()); cursor != "" {
 		bar += "  " + theme.Dim.Render(cursor)
 	}
 	return theme.StatusBarItem.Width(m.width).MaxWidth(m.width).Render(bar)
@@ -112,7 +112,6 @@ func (m CRDsModel) renderCRDListBody() string {
 	return m.crdsTable.View()
 }
 
-// scopeLabel formats the namespace for the empty-instances message.
 func (m CRDsModel) scopeLabel() string {
 	if m.namespace == "" {
 		return "any namespace"
@@ -146,8 +145,6 @@ func (m CRDsModel) instanceRows() []table.Row {
 	return rows
 }
 
-// SelectedCRDName returns the CRD currently under the cursor (or the
-// drilled-into one when in instance view) for the breadcrumb.
 func (m CRDsModel) SelectedCRDName() string {
 	if m.view == crdsViewInstances {
 		return m.selectedCRD.Name

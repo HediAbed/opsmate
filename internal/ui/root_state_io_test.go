@@ -16,7 +16,7 @@ func TestRootHandlesLivePortForwardLifecycle(t *testing.T) {
 	sessionInfo := testModelPortForwardSession(t, "forward-1", "worker", 18080, 80)
 	session := &testPortForward{session: sessionInfo, exit: make(chan kube.PortForwardExit, 1)}
 	operations.portForwards = []kube.PortForwardSession{sessionInfo}
-	started := portForwardStartedMsg{session: session}
+	started := portForwardStartedMsg{Session: session}
 	waitCommand := model.handlePortForwardStarted(started)
 	assertRootTracksPortForward(t, model, waitCommand != nil)
 
@@ -28,12 +28,12 @@ func TestRootHandlesLivePortForwardLifecycle(t *testing.T) {
 
 	model.pfCursor = 99
 	operations.portForwards = nil
-	model.handlePortForwardStopped(portForwardStoppedMsg{sessionID: model.pfSessions[0].ID, err: errStub("unexpected exit")})
+	model.handlePortForwardStopped(portForwardStoppedMsg{SessionID: model.pfSessions[0].ID, Err: errStub("unexpected exit")})
 	assertRootHandledStoppedPortForward(t, model)
 
 	operations.portForwards = []kube.PortForwardSession{sessionInfo}
 	model.pfCursor = 99
-	model.handlePortForwardStopped(portForwardStoppedMsg{sessionID: "another"})
+	model.handlePortForwardStopped(portForwardStoppedMsg{SessionID: "another"})
 	if model.pfCursor != 0 {
 		t.Fatalf("non-empty stopped cursor = %d, want 0", model.pfCursor)
 	}
@@ -62,8 +62,8 @@ func requirePortForwardStopped(t *testing.T, message tea.Msg, expectedID string)
 	if !ok {
 		t.Fatalf("wait response type = %T", message)
 	}
-	if stopped.sessionID != expectedID {
-		t.Errorf("stopped ID = %q, want %q", stopped.sessionID, expectedID)
+	if stopped.SessionID != expectedID {
+		t.Errorf("stopped ID = %q, want %q", stopped.SessionID, expectedID)
 	}
 }
 

@@ -8,7 +8,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/HediAbed/opsmate/failure"
+	"github.com/HediAbed/opsmate/internal/analysis/provider"
+	"github.com/HediAbed/opsmate/internal/failure"
 )
 
 const (
@@ -24,20 +25,19 @@ type clusterAnalysisRequest struct {
 
 type clusterAnalysisRequestEncoder func(clusterAnalysisRequest) ([]byte, error)
 
-func AnalyzeClusterContext(
+func (s Service) AnalyzeClusterContext(
 	ctx context.Context,
 	systemPrompt string,
 	question string,
 	conversationMemory string,
 	clusterContext string,
 ) AnalysisMsg {
-	provider := getActiveProvider()
-	if provider == nil {
+	if s.client == nil {
 		return AnalysisMsg{Err: missingProviderError()}
 	}
 	return analyzeClusterContextWithProvider(
 		ctx,
-		provider,
+		s.client,
 		systemPrompt,
 		question,
 		conversationMemory,
@@ -47,7 +47,7 @@ func AnalyzeClusterContext(
 
 func analyzeClusterContextWithProvider(
 	ctx context.Context,
-	provider Provider,
+	client provider.Client,
 	systemPrompt string,
 	question string,
 	conversationMemory string,
@@ -55,7 +55,7 @@ func analyzeClusterContextWithProvider(
 ) AnalysisMsg {
 	return analyzeClusterContextWithEncoder(
 		ctx,
-		provider,
+		client,
 		systemPrompt,
 		question,
 		conversationMemory,
@@ -66,7 +66,7 @@ func analyzeClusterContextWithProvider(
 
 func analyzeClusterContextWithEncoder(
 	ctx context.Context,
-	provider Provider,
+	client provider.Client,
 	systemPrompt string,
 	question string,
 	conversationMemory string,
@@ -74,10 +74,10 @@ func analyzeClusterContextWithEncoder(
 	encode clusterAnalysisRequestEncoder,
 ) AnalysisMsg {
 	if ctx == nil {
-		return AnalysisMsg{Err: &ProviderError{
-			Provider:  provider.Name(),
+		return AnalysisMsg{Err: &provider.Error{
+			Provider:  client.Name(),
 			Operation: failure.OperationAnalyze,
-			Err:       ErrProviderContextRequired,
+			Err:       provider.ErrProviderContextRequired,
 		}}
 	}
 	instructions := systemPrompt +
@@ -89,18 +89,18 @@ func analyzeClusterContextWithEncoder(
 		ConversationMemory: conversationMemory,
 	})
 	if err != nil {
-		return AnalysisMsg{Err: &ProviderError{
-			Provider: provider.Name(), Operation: failure.OperationEncode, Err: err,
+		return AnalysisMsg{Err: &provider.Error{
+			Provider: client.Name(), Operation: failure.OperationEncode, Err: err,
 		}}
 	}
 
-	response, err := provider.Chat(ctx, instructions, string(payload))
+	response, err := client.Chat(ctx, instructions, string(payload))
 	if err != nil {
-		return AnalysisMsg{Err: providerCommandError(ctx, provider.Name(), failure.OperationAnalyze, err)}
+		return AnalysisMsg{Err: providerCommandError(ctx, client.Name(), failure.OperationAnalyze, err)}
 	}
 	if strings.TrimSpace(response) == "" {
-		return AnalysisMsg{Err: &ProviderError{
-			Provider: provider.Name(), Operation: failure.OperationAnalyze, Err: ErrProviderEmptyResponse,
+		return AnalysisMsg{Err: &provider.Error{
+			Provider: client.Name(), Operation: failure.OperationAnalyze, Err: provider.ErrProviderEmptyResponse,
 		}}
 	}
 	return AnalysisMsg{Response: response}
@@ -110,11 +110,11 @@ func encodeClusterAnalysisRequest(request clusterAnalysisRequest) ([]byte, error
 	return json.Marshal(request)
 }
 
-func providerCommandError(ctx context.Context, provider string, operation failure.Operation, err error) error {
+func providerCommandError(ctx context.Context, providerName string, operation failure.Operation, err error) error {
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		return &ProviderError{Provider: provider, Operation: operation, Err: context.DeadlineExceeded}
+		return &provider.Error{Provider: providerName, Operation: operation, Err: context.DeadlineExceeded}
 	}
-	return &ProviderError{Provider: provider, Operation: operation, Err: err}
+	return &provider.Error{Provider: providerName, Operation: operation, Err: err}
 }
 
 func limitContextText(text string, maxRunes int) string {
@@ -128,7 +128,8 @@ func limitContextText(text string, maxRunes int) string {
 	if maxRunes <= contextEllipsisRuneCount {
 		return string([]rune(text)[:maxRunes])
 	}
-	return strings.TrimSpace(truncateText(text, maxRunes-contextEllipsisRuneCount))
+	truncated := string([]rune(text)[:maxRunes-contextEllipsisRuneCount]) + "..."
+	return strings.TrimSpace(truncated)
 }
 
 func quoteUntrustedData(data string) string {

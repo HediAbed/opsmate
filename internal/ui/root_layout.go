@@ -6,8 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/HediAbed/opsmate/failure"
 	"github.com/HediAbed/opsmate/internal/analysis"
+	"github.com/HediAbed/opsmate/internal/failure"
 )
 
 var ErrUnsupportedScreen = errors.New("screen is not supported")

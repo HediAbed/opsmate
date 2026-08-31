@@ -7,8 +7,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/HediAbed/opsmate/internal/theme"
-	"github.com/HediAbed/opsmate/tui"
+	"github.com/HediAbed/opsmate/internal/ui/component"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 func (m *RootModel) openPFModal() {
@@ -125,7 +125,7 @@ func (m RootModel) renderPFModal(height int) string {
 		Border(lipgloss.ThickBorder()).
 		BorderForeground(theme.ElectricPurp).
 		Padding(0, 1).
-		Width(tui.FitModalWidth(portForwardModalDesiredWidth, m.width)).
+		Width(component.FitModalWidth(portForwardModalDesiredWidth, m.width)).
 		MaxWidth(m.width).
 		Render(content)
 

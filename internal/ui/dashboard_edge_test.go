@@ -12,7 +12,7 @@ import (
 
 	"github.com/HediAbed/opsmate/internal/analysis"
 	"github.com/HediAbed/opsmate/internal/cluster"
-	"github.com/HediAbed/opsmate/internal/theme"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 func TestDashboardMetricsTickMessageHasExpectedType(t *testing.T) {

@@ -1,7 +1,5 @@
 package ui
 
-import "github.com/HediAbed/opsmate/internal/analysis"
-
 func (m *AnalysisPanelModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
@@ -60,5 +58,5 @@ func (m *AnalysisPanelModel) SetScreenContext(ctx string) {
 }
 
 func (m *AnalysisPanelModel) RefreshProviderName() {
-	m.providerName = sanitizeTerminalText(analysis.ProviderName())
+	m.providerName = sanitizeTerminalText(m.providerNameOf())
 }

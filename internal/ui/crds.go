@@ -9,10 +9,9 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/HediAbed/opsmate/internal/cluster"
-	"github.com/HediAbed/opsmate/internal/theme"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
-// CRDsModel provides list and instance views for custom resources.
 type CRDsModel struct {
 	width     int
 	height    int

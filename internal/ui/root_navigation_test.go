@@ -339,7 +339,7 @@ func TestRootUpdate_ContextsMsg_PicksCurrentMarker(t *testing.T) {
 
 func TestRootUpdate_PortForwardStartedMsg_ReshresPFList(t *testing.T) {
 	m := freshRoot(t)
-	model, _ := m.Update(portForwardStartedMsg{err: errStub("port in use")})
+	model, _ := m.Update(portForwardStartedMsg{Err: errStub("port in use")})
 	r := model.(RootModel)
 	if r.err == nil {
 		t.Error("err should propagate")
@@ -349,7 +349,7 @@ func TestRootUpdate_PortForwardStartedMsg_ReshresPFList(t *testing.T) {
 func TestRootUpdate_PortForwardStoppedMsg_ResetsPFCursor(t *testing.T) {
 	m := freshRoot(t)
 	m.pfCursor = 99
-	model, _ := m.Update(portForwardStoppedMsg{sessionID: "x"})
+	model, _ := m.Update(portForwardStoppedMsg{SessionID: "x"})
 	_ = model
 }
 

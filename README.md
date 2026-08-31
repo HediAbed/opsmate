@@ -61,7 +61,7 @@ OPSMATE_PROVIDER_API_KEY=replace-with-your-key
 
 `OPSMATE_PROVIDER_API_KEY` is optional. Environment variables override values from `.env`.
 
-Use HTTPS for remote endpoints. Loopback HTTP works for local endpoints. The endpoint must accept `model` and `messages` in a JSON request. For streaming responses, send server-sent events with text in `choices[].delta.content`.
+For Ollama, set `OPSMATE_PROVIDER_URL` to `http://localhost:11434/v1/chat/completions` and `OPSMATE_PROVIDER_MODEL` to the model you pulled.
 
 ## Release
 

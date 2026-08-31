@@ -137,13 +137,6 @@ func TestDashboardUpdateDashboardHealthMsgError(t *testing.T) {
 }
 
 func TestDashboardUpdate_KeyA_TogglesHealthAnalysis(t *testing.T) {
-	t.Setenv("OPSMATE_PROVIDER_URL", "")
-	t.Setenv("OPSMATE_PROVIDER_MODEL", "")
-	t.Setenv("OPSMATE_PROVIDER_API_KEY", "")
-	if err := analysis.InitProvider(); err != nil {
-		t.Fatalf("initialize provider: %v", err)
-	}
-
 	m := newTestDashboardModel("ns")
 	m.SetSize(120, 30)
 	out, _ := m.Update(tea.KeyPressMsg{Code: 'a', Text: "a"})

@@ -3,8 +3,8 @@ package ui
 import (
 	"charm.land/bubbles/v2/viewport"
 
-	"github.com/HediAbed/opsmate/internal/theme"
-	"github.com/HediAbed/opsmate/tui"
+	"github.com/HediAbed/opsmate/internal/ui/component"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 const (
@@ -45,10 +45,8 @@ const (
 	scaleModalDesiredWidth       = 45
 )
 
-// popupScrollIndicator dims the raw indicator so popup chrome stays
-// quiet; empty stays empty so callers can append it unconditionally.
 func popupScrollIndicator(view viewport.Model) string {
-	indicator := tui.ViewportScrollIndicator(view)
+	indicator := component.ViewportScrollIndicator(view)
 	if indicator == "" {
 		return ""
 	}

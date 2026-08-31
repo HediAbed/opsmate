@@ -21,13 +21,13 @@ import (
 
 const informerResyncPeriod = time.Duration(0)
 
-type LiveState[T any] struct {
+type LiveState[T interface{}] struct {
 	Items []T
 	Ready bool
 	Err   error
 }
 
-type LiveSet[T any] interface {
+type LiveSet[T interface{}] interface {
 	Changes() <-chan struct{}
 	State() LiveState[T]
 	Stop()
@@ -55,9 +55,9 @@ type liveInformer interface {
 	SetWatchErrorHandlerWithContext(cache.WatchErrorHandlerWithContext) error
 }
 
-type liveObjectDecoder[T any] func(any) (T, error)
+type liveObjectDecoder[T interface{}] func(interface{}) (T, error)
 
-type liveSet[T any] struct {
+type liveSet[T interface{}] struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 	informer  liveInformer
@@ -71,7 +71,7 @@ type liveSet[T any] struct {
 	lastError error
 }
 
-type keyedLiveObject[T any] struct {
+type keyedLiveObject[T interface{}] struct {
 	key   string
 	value T
 }
@@ -83,7 +83,7 @@ type typedListWatchClient[L runtime.Object] interface {
 
 type liveResourceClient[L runtime.Object] struct {
 	resource       typedListWatchClient[L]
-	capabilityHint any
+	capabilityHint interface{}
 }
 
 type connectionTrackingListerWatcher struct {
@@ -91,7 +91,7 @@ type connectionTrackingListerWatcher struct {
 	onSuccess func()
 }
 
-func observedClient[L runtime.Object](resource typedListWatchClient[L], capabilityHint any) liveResourceClient[L] {
+func observedClient[L runtime.Object](resource typedListWatchClient[L], capabilityHint interface{}) liveResourceClient[L] {
 	return liveResourceClient[L]{resource: resource, capabilityHint: capabilityHint}
 }
 
@@ -155,7 +155,7 @@ func (m *Manager) ObserveReplicaSets(ctx context.Context, namespace string) (Liv
 	}, &appsv1.ReplicaSet{}, decodeLiveReplicaSet, stripManagedFields)
 }
 
-func observeResource[T any, L runtime.Object](
+func observeResource[T interface{}, L runtime.Object](
 	parent context.Context,
 	manager *Manager,
 	subject Subject,
@@ -172,7 +172,7 @@ func observeResource[T any, L runtime.Object](
 	return newLiveSetWithContext(ctx, cancel, subject, newTypedListWatch(client.resource, client.capabilityHint), prototype, decode, transform)
 }
 
-func newTypedListWatch[L runtime.Object](client typedListWatchClient[L], capabilityHint any) cache.ListerWatcher {
+func newTypedListWatch[L runtime.Object](client typedListWatchClient[L], capabilityHint interface{}) cache.ListerWatcher {
 	listWatch := &cache.ListWatch{
 		ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
 			return client.List(ctx, options)
@@ -184,7 +184,7 @@ func newTypedListWatch[L runtime.Object](client typedListWatchClient[L], capabil
 	return cache.ToListWatcherWithWatchListSemantics(listWatch, capabilityHint)
 }
 
-func newLiveSet[T any](
+func newLiveSet[T interface{}](
 	parent context.Context,
 	subject Subject,
 	listWatcher cache.ListerWatcher,
@@ -199,7 +199,7 @@ func newLiveSet[T any](
 	return newLiveSetWithContext(ctx, cancel, subject, listWatcher, prototype, decode, transform)
 }
 
-func newLiveSetWithContext[T any](
+func newLiveSetWithContext[T interface{}](
 	ctx context.Context,
 	cancel context.CancelFunc,
 	subject Subject,
@@ -218,7 +218,7 @@ func newLiveSetWithContext[T any](
 	return configureAndStartLiveSet(set, transform)
 }
 
-func startLiveSet[T any](
+func startLiveSet[T interface{}](
 	ctx context.Context,
 	cancel context.CancelFunc,
 	subject Subject,
@@ -235,7 +235,7 @@ func startLiveSet[T any](
 	return configureAndStartLiveSet(set, transform)
 }
 
-func newLiveSetState[T any](
+func newLiveSetState[T interface{}](
 	ctx context.Context,
 	cancel context.CancelFunc,
 	subject Subject,
@@ -251,7 +251,7 @@ func newLiveSetState[T any](
 	}
 }
 
-func configureAndStartLiveSet[T any](set *liveSet[T], transform cache.TransformFunc) (LiveSet[T], error) {
+func configureAndStartLiveSet[T interface{}](set *liveSet[T], transform cache.TransformFunc) (LiveSet[T], error) {
 	if err := configureLiveSet(set, transform); err != nil {
 		set.cancel()
 		return nil, newError(OperationObserve, set.subject, "", err)
@@ -295,7 +295,7 @@ func (w *connectionTrackingListerWatcher) IsWatchListSemanticsUnSupported() bool
 	return watchlist.DoesClientNotSupportWatchListSemantics(w.delegate)
 }
 
-func validateLiveSetInputs[T any](
+func validateLiveSetInputs[T interface{}](
 	ctx context.Context,
 	listWatcher cache.ListerWatcher,
 	prototype runtime.Object,
@@ -320,7 +320,7 @@ func validateLiveSetInputs[T any](
 	return nil
 }
 
-func configureLiveSet[T any](set *liveSet[T], transform cache.TransformFunc) error {
+func configureLiveSet[T interface{}](set *liveSet[T], transform cache.TransformFunc) error {
 	if err := set.informer.SetTransform(transform); err != nil {
 		return err
 	}
@@ -333,15 +333,15 @@ func configureLiveSet[T any](set *liveSet[T], transform cache.TransformFunc) err
 
 func (s *liveSet[T]) eventHandler() cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerDetailedFuncs{
-		AddFunc: func(_ any, initial bool) {
+		AddFunc: func(_ interface{}, initial bool) {
 			if !initial {
 				s.recordChange()
 			}
 		},
-		UpdateFunc: func(_, _ any) {
+		UpdateFunc: func(_, _ interface{}) {
 			s.recordChange()
 		},
-		DeleteFunc: func(any) {
+		DeleteFunc: func(interface{}) {
 			s.recordChange()
 		},
 	}

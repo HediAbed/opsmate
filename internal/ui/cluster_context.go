@@ -7,13 +7,14 @@ import (
 
 	"github.com/HediAbed/opsmate/internal/cluster"
 	"github.com/HediAbed/opsmate/internal/kube"
+	clusterui "github.com/HediAbed/opsmate/internal/ui/cluster"
 )
 
 func (m RootModel) fetchNamespaces() tea.Cmd {
 	parent := m.runtime.Context
 	clusterContext := m.runtime.ClusterContext
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(parent, clusterReadTimeout)
+		ctx, cancel := context.WithTimeout(parent, clusterui.ReadTimeout)
 		defer cancel()
 		namespaces, err := clusterContext.Namespaces(ctx)
 		return cluster.NamespacesMsg{Namespaces: namespaces, Err: err}
@@ -24,7 +25,7 @@ func (m RootModel) fetchCurrentContext() tea.Cmd {
 	parent := m.runtime.Context
 	clusterContext := m.runtime.ClusterContext
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(parent, clusterReadTimeout)
+		ctx, cancel := context.WithTimeout(parent, clusterui.ReadTimeout)
 		defer cancel()
 		name, err := clusterContext.CurrentContext(ctx)
 		return cluster.CurrentContextMsg{Name: name, Err: err}
@@ -35,7 +36,7 @@ func (m RootModel) fetchContexts() tea.Cmd {
 	parent := m.runtime.Context
 	clusterContext := m.runtime.ClusterContext
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(parent, clusterReadTimeout)
+		ctx, cancel := context.WithTimeout(parent, clusterui.ReadTimeout)
 		defer cancel()
 		contexts, err := clusterContext.Contexts(ctx)
 		return cluster.ContextsMsg{Contexts: contextMessages(contexts), Err: err}
@@ -46,7 +47,7 @@ func (m RootModel) switchContext(name string) tea.Cmd {
 	parent := m.runtime.Context
 	clusterContext := m.runtime.ClusterContext
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(parent, clusterActionTimeout)
+		ctx, cancel := context.WithTimeout(parent, clusterui.ActionTimeout)
 		defer cancel()
 		err := clusterContext.Connect(ctx, name)
 		return cluster.ContextSwitchedMsg{Name: name, Err: err}

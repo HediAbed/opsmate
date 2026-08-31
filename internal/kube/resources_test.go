@@ -30,14 +30,14 @@ type resourceCall struct {
 	call func() (int, string, error)
 }
 
-func namespacedListProbe[T any](list func(context.Context, string) ([]T, error), name func(T) string) func() (int, string, error) {
+func namespacedListProbe[T interface{}](list func(context.Context, string) ([]T, error), name func(T) string) func() (int, string, error) {
 	return func() (int, string, error) {
 		items, err := list(context.Background(), testNamespace)
 		return len(items), firstName(items, name), err
 	}
 }
 
-func clusterListProbe[T any](list func(context.Context) ([]T, error), name func(T) string) func() (int, string, error) {
+func clusterListProbe[T interface{}](list func(context.Context) ([]T, error), name func(T) string) func() (int, string, error) {
 	return func() (int, string, error) {
 		items, err := list(context.Background())
 		return len(items), firstName(items, name), err
@@ -340,7 +340,7 @@ func failingListReactor(err error) clienttesting.ReactionFunc {
 	}
 }
 
-func firstName[T any](items []T, name func(T) string) string {
+func firstName[T interface{}](items []T, name func(T) string) string {
 	if len(items) == 0 {
 		return ""
 	}

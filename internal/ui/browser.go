@@ -13,7 +13,7 @@ import (
 	"github.com/HediAbed/opsmate/internal/analysis"
 	"github.com/HediAbed/opsmate/internal/cluster"
 	"github.com/HediAbed/opsmate/internal/kube"
-	"github.com/HediAbed/opsmate/internal/theme"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 var allResourceTypes = []string{resourceTypePods, resourceTypeDeployments, resourceTypeServices, resourceTypeStatefulSets, resourceTypeDaemonSets, resourceTypeConfigMaps, resourceTypeNodes, resourceTypeJobs, resourceTypeIngresses, resourceTypeNetworkPolicies, resourceTypePVCs, resourceTypeCronJobs, resourceTypeHPAs, resourceTypeSecrets, resourceTypeReplicaSets, resourceTypeRBAC}
@@ -97,6 +97,7 @@ type BrowserModel struct {
 	resourceType string
 	cluster      clusterCommands
 	operations   clusterOperations
+	analysis     analysis.Service
 
 	pods            []cluster.Pod
 	deployments     []cluster.Deployment
@@ -197,6 +198,15 @@ type browserDetailSummaryResultMsg struct {
 }
 
 func NewBrowserModel(namespace string, commands clusterCommands, operations clusterOperations) BrowserModel {
+	return newBrowserWithAnalysis(namespace, commands, operations, analysis.NewService(nil))
+}
+
+func newBrowserWithAnalysis(
+	namespace string,
+	commands clusterCommands,
+	operations clusterOperations,
+	analysisService analysis.Service,
+) BrowserModel {
 	loadingSpinner := spinner.New(
 		spinner.WithSpinner(spinner.Dot),
 		spinner.WithStyle(theme.SpinnerStyle),
@@ -228,6 +238,7 @@ func NewBrowserModel(namespace string, commands clusterCommands, operations clus
 		resourceType:  resourceTypePods,
 		cluster:       commands,
 		operations:    operations,
+		analysis:      analysisService,
 		resourceTable: resourceTable,
 		detailView:    detailView,
 		spinner:       loadingSpinner,

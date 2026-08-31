@@ -320,12 +320,12 @@ func (m *Manager) ListRBAC(ctx context.Context, namespace string) (RBACResources
 	return resources, errors.Join(serviceAccounts.err, roles.err, roleBindings.err, clusterRoles.err, clusterRoleBindings.err)
 }
 
-type rbacCollection[T any] struct {
+type rbacCollection[T interface{}] struct {
 	items []T
 	err   error
 }
 
-func collectRBAC[T any](reads *sync.WaitGroup, subject Subject, list func() ([]T, error)) *rbacCollection[T] {
+func collectRBAC[T interface{}](reads *sync.WaitGroup, subject Subject, list func() ([]T, error)) *rbacCollection[T] {
 	result := &rbacCollection[T]{}
 	reads.Go(func() {
 		items, err := list()
@@ -337,7 +337,7 @@ func collectRBAC[T any](reads *sync.WaitGroup, subject Subject, list func() ([]T
 	return result
 }
 
-func listResources[T any](ctx context.Context, manager *Manager, subject Subject, load func(context.Context, *Clients) ([]T, error)) ([]T, error) {
+func listResources[T interface{}](ctx context.Context, manager *Manager, subject Subject, load func(context.Context, *Clients) ([]T, error)) ([]T, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, newError(OperationList, subject, "", err)
 	}
@@ -359,7 +359,7 @@ func resourceListError(subject Subject, err error) error {
 	return newError(OperationList, subject, "", err)
 }
 
-func normalizedItems[T any](items []T) []T {
+func normalizedItems[T interface{}](items []T) []T {
 	if items == nil {
 		return []T{}
 	}

@@ -14,7 +14,8 @@ COVERAGE_TARGET := 100.0
 GO_VERSION := $(strip $(shell awk '$$1 == "go" { print $$2; exit }' go.mod))
 GO_TOOLCHAIN := go$(GO_VERSION)
 BUILD_FLAGS := -trimpath -buildvcs=false
-LINK_FLAGS := -s -w
+VERSION_PACKAGE := $(MODULE)/internal/version
+LINK_FLAGS := -s -w -X $(VERSION_PACKAGE).release=$(VERSION)
 GO_FILES := $(shell git ls-files --cached --others --exclude-standard '*.go' | \
 	while IFS= read -r go_file; do if [ -f "$$go_file" ]; then printf '%s ' "$$go_file"; fi; done)
 
@@ -99,7 +100,7 @@ coverage: ## Require exact aggregate statement coverage.
 	trap 'find "$$coverage_workspace" -depth -delete' EXIT HUP INT TERM; \
 	mkdir "$$coverage_workspace/integration"; \
 	go test -count=1 -covermode=atomic -coverpkg=./... -coverprofile="$$coverage_workspace/unit.out" ./...; \
-	go build -cover -covermode=atomic -coverpkg=./... $(BUILD_FLAGS) -o "$$coverage_workspace/$(BINARY)" $(COMMAND); \
+	go build -cover -covermode=atomic -coverpkg=./... $(BUILD_FLAGS) -ldflags='$(LINK_FLAGS)' -o "$$coverage_workspace/$(BINARY)" $(COMMAND); \
 	actual_version=$$(GOCOVERDIR="$$coverage_workspace/integration" "$$coverage_workspace/$(BINARY)" --version 2>"$$coverage_workspace/version.err"); \
 	test "$$actual_version" = "$(BINARY) $(VERSION)"; \
 	test ! -s "$$coverage_workspace/version.err"; \
@@ -256,7 +257,17 @@ docker-build: version-check | $(DIST_DIR) ## Build one target with the pinned co
 	mv "$$temporary_output/$(TARGET_BINARY)" "$(DIST_DIR)/$(TARGET_BINARY)"
 
 clean: ## Remove only known generated files.
-	@rm -f -- "./$(BINARY)" "./$(BINARY).exe" ./coverage.out ./coverage-*.out
+	@rm -f -- \
+		"./$(BINARY)" \
+		"./$(BINARY).exe" \
+		./coverage.out \
+		./coverage-*.out \
+		"$(DIST_DIR)/$(BINARY)-linux-amd64" \
+		"$(DIST_DIR)/$(BINARY)-linux-arm64" \
+		"$(DIST_DIR)/$(BINARY)-darwin-amd64" \
+		"$(DIST_DIR)/$(BINARY)-darwin-arm64" \
+		"$(DIST_DIR)/$(BINARY)-windows-amd64.exe"
+	@rmdir "$(DIST_DIR)" 2>/dev/null || true
 	@rm -f -- \
 		"$(DIST_DIR)/$(BINARY)-linux-amd64" \
 		"$(DIST_DIR)/$(BINARY)-linux-arm64" \

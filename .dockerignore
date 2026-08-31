@@ -5,11 +5,5 @@
 !*.go
 !cmd/
 !cmd/**
-!failure/
-!failure/**
 !internal/
 !internal/**
-!terminal/
-!terminal/**
-!tui/
-!tui/**

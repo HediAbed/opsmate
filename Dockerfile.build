@@ -19,10 +19,11 @@ ARG OUTPUT_NAME=opsmate
 
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
+    release="$(sed -n '1p' VERSION)" && \
     GOOS="${GOOS}" GOARCH="${GOARCH}" go build \
         -trimpath \
         -buildvcs=false \
-        -ldflags="-s -w" \
+        -ldflags="-s -w -X github.com/HediAbed/opsmate/internal/version.release=${release}" \
         -o "/out/${OUTPUT_NAME}" \
         ./cmd/opsmate
 

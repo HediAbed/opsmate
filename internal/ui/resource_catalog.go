@@ -9,16 +9,14 @@ import (
 	"github.com/HediAbed/opsmate/internal/cluster"
 )
 
-// resourceBinding groups browser behavior for one resource kind.
 type resourceBinding struct {
 	Singular     string
 	RowsOf       func(model *BrowserModel) []table.Row
 	IdentitiesOf func(model *BrowserModel) []resourceIdentity
-	// WideRowsOf is optional; nil falls back to RowsOf.
-	WideRowsOf func(model *BrowserModel) []table.Row
-	Fetch      func(clusterCommands, string) tea.Cmd
-	Clear      func(model *BrowserModel)
-	Count      func(model *BrowserModel) int
+	WideRowsOf   func(model *BrowserModel) []table.Row
+	Fetch        func(clusterCommands, string) tea.Cmd
+	Clear        func(model *BrowserModel)
+	Count        func(model *BrowserModel) int
 }
 
 var resourceCatalog = map[string]resourceBinding{

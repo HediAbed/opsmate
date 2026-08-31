@@ -5,8 +5,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/HediAbed/opsmate/internal/analysis"
-	"github.com/HediAbed/opsmate/internal/theme"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 func (m *BrowserModel) SetSize(width, height int) {
@@ -103,7 +102,7 @@ func (m *BrowserModel) fetchDetailSummary(identity resourceIdentity) tea.Cmd {
 	m.detailRequestID++
 	requestID := m.detailRequestID
 	content := m.detailContent
-	command := analysis.DescribeSummary(identity.Kind, identity.Name, content)
+	command := m.analysis.DescribeSummary(identity.Kind, identity.Name, content)
 	return func() tea.Msg {
 		return browserDetailSummaryResultMsg{
 			requestID: requestID,

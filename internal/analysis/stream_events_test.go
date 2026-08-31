@@ -3,6 +3,8 @@ package analysis
 import (
 	"errors"
 	"testing"
+
+	"github.com/HediAbed/opsmate/internal/analysis/provider"
 )
 
 func TestWaitForStreamChunk_NilChannelReturnsNilCmd(t *testing.T) {
@@ -13,8 +15,8 @@ func TestWaitForStreamChunk_NilChannelReturnsNilCmd(t *testing.T) {
 
 func TestWaitForStreamChunk_MapsChunkErrorAndClosure(t *testing.T) {
 	events := make(chan StreamEvent, 3)
-	events <- newStreamChunk("hello")
-	events <- newStreamFailure(errors.New("boom"))
+	events <- provider.NewChunk("hello")
+	events <- provider.NewFailure(errors.New("boom"))
 	close(events)
 
 	chunk := WaitForStreamChunk(events)().(StreamChunkMsg)
@@ -34,8 +36,7 @@ func TestWaitForStreamChunk_MapsChunkErrorAndClosure(t *testing.T) {
 }
 
 func TestSupportsStreaming_FalseWithoutProvider(t *testing.T) {
-	withCleanProvider(t)
-	if SupportsStreaming() {
+	if NewService(nil).SupportsStreaming() {
 		t.Error("streaming must be unavailable without a provider")
 	}
 }

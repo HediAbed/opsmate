@@ -12,7 +12,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/HediAbed/opsmate/internal/analysis"
-	"github.com/HediAbed/opsmate/internal/theme"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 type historyEntry struct {
@@ -83,7 +83,6 @@ type markdownRenderer interface {
 
 type markdownRendererFactory func(int) (markdownRenderer, error)
 
-// AnalysisPanelModel handles provider-backed analysis and command suggestions.
 type AnalysisPanelModel struct {
 	width  int
 	height int
@@ -112,8 +111,10 @@ type AnalysisPanelModel struct {
 	requestID    uint64
 
 	hasProvider       func() bool
+	providerNameOf    func() string
 	supportsStreaming func() bool
 	analyze           func(string, string) tea.Cmd
+	generateCommand   func(string, string) tea.Cmd
 	analyzeCluster    func(string, string, string, string) tea.Cmd
 	analyzeStream     func(string, string) (tea.Cmd, <-chan analysis.StreamEvent, context.CancelFunc)
 
@@ -122,6 +123,10 @@ type AnalysisPanelModel struct {
 }
 
 func NewAnalysisPanelModel() AnalysisPanelModel {
+	return newAnalysisPanelWithService(analysis.NewService(nil))
+}
+
+func newAnalysisPanelWithService(service analysis.Service) AnalysisPanelModel {
 	queryInput := newTextInput(textInputOptions{
 		Prompt:      "> ",
 		Placeholder: "Ask about K8s resources or !generate a command...",
@@ -143,12 +148,14 @@ func NewAnalysisPanelModel() AnalysisPanelModel {
 		responseView:      responseView,
 		spinner:           loadingSpinner,
 		history:           make([]historyEntry, 0),
-		providerName:      sanitizeTerminalText(analysis.ProviderName()),
-		hasProvider:       analysis.HasProvider,
-		supportsStreaming: analysis.SupportsStreaming,
-		analyze:           analysis.Analyze,
+		providerName:      sanitizeTerminalText(service.ProviderName()),
+		hasProvider:       service.Available,
+		providerNameOf:    service.ProviderName,
+		supportsStreaming: service.SupportsStreaming,
+		analyze:           service.Analyze,
+		generateCommand:   service.GenerateCommand,
 		analyzeCluster:    unavailableClusterAnalysis,
-		analyzeStream:     analysis.AnalyzeStream,
+		analyzeStream:     service.AnalyzeStream,
 	}
 }
 
@@ -428,7 +435,7 @@ func (m *AnalysisPanelModel) submitCommandRequest(request string) tea.Cmd {
 	if namespace == "" {
 		namespace = "default"
 	}
-	return m.beginRequest(analysis.GenerateCommand(request, namespace))
+	return m.beginRequest(m.generateCommand(request, namespace))
 }
 
 func (m *AnalysisPanelModel) submitAnalysisRequest(question string) tea.Cmd {

@@ -91,7 +91,7 @@ func (m *DashboardModel) fetchHealthSummary() tea.Cmd {
 		Deployments: m.deployments,
 		Events:      m.events,
 	})
-	command := analysis.ClusterHealth(context)
+	command := m.analysis.ClusterHealth(context)
 	return func() tea.Msg {
 		return dashboardHealthResultMsg{requestID: requestID, namespace: namespace, payload: command()}
 	}

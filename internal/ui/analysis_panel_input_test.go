@@ -24,13 +24,6 @@ func TestAnalysisPanelHandleKey_EnterEmptyQueryNoOp(t *testing.T) {
 }
 
 func TestAnalysisPanelHandleKey_EnterWithoutProviderShowsHint(t *testing.T) {
-	t.Setenv("OPSMATE_PROVIDER_URL", "")
-	t.Setenv("OPSMATE_PROVIDER_MODEL", "")
-	t.Setenv("OPSMATE_PROVIDER_API_KEY", "")
-	if err := analysis.InitProvider(); err != nil {
-		t.Fatalf("initialize provider: %v", err)
-	}
-
 	m := NewAnalysisPanelModel()
 	m.SetSize(80, 30)
 	m.input.Focus()
@@ -45,13 +38,6 @@ func TestAnalysisPanelHandleKey_EnterWithoutProviderShowsHint(t *testing.T) {
 }
 
 func TestAnalysisPanelHandleKey_EnterCommandModeStripsBang(t *testing.T) {
-	t.Setenv("OPSMATE_PROVIDER_URL", "")
-	t.Setenv("OPSMATE_PROVIDER_MODEL", "")
-	t.Setenv("OPSMATE_PROVIDER_API_KEY", "")
-	if err := analysis.InitProvider(); err != nil {
-		t.Fatalf("initialize provider: %v", err)
-	}
-
 	m := NewAnalysisPanelModel()
 	m.SetSize(80, 30)
 	m.input.Focus()
@@ -171,7 +157,7 @@ func TestAnalysisPanelHandleKey_RetryLast_RKey(t *testing.T) {
 	}
 }
 
-func installTestAnalysisProvider(t *testing.T, body string) {
+func newTestAnalysisPanel(t *testing.T, body string) AnalysisPanelModel {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(body))
@@ -181,22 +167,15 @@ func installTestAnalysisProvider(t *testing.T, body string) {
 	t.Setenv("OPSMATE_PROVIDER_URL", srv.URL)
 	t.Setenv("OPSMATE_PROVIDER_MODEL", "test-model")
 	t.Setenv("OPSMATE_PROVIDER_API_KEY", "test-key")
-	if err := analysis.InitProvider(); err != nil {
+	service, err := analysis.NewServiceFromEnvironment()
+	if err != nil {
 		t.Fatalf("initialize provider: %v", err)
 	}
-	t.Cleanup(func() {
-		t.Setenv("OPSMATE_PROVIDER_URL", "")
-		t.Setenv("OPSMATE_PROVIDER_MODEL", "")
-		t.Setenv("OPSMATE_PROVIDER_API_KEY", "")
-		if err := analysis.InitProvider(); err != nil {
-			t.Errorf("reset provider: %v", err)
-		}
-	})
+	return newAnalysisPanelWithService(service)
 }
 
 func TestAnalysisPanelHandleKey_BangCommandModeReturnsCmd(t *testing.T) {
-	installTestAnalysisProvider(t, `{"choices":[{"message":{"content":"COMMAND: kubectl get pods"}}]}`)
-	m := NewAnalysisPanelModel()
+	m := newTestAnalysisPanel(t, `{"choices":[{"message":{"content":"COMMAND: kubectl get pods"}}]}`)
 	m.SetSize(80, 30)
 	m.input.Focus()
 	m.input.SetValue("!list pods")
@@ -213,8 +192,7 @@ func TestAnalysisPanelHandleKey_BangCommandModeReturnsCmd(t *testing.T) {
 }
 
 func TestAnalysisPanelHandleKey_BangBlankIsNoOp(t *testing.T) {
-	installTestAnalysisProvider(t, `{"choices":[{"message":{"content":"x"}}]}`)
-	m := NewAnalysisPanelModel()
+	m := newTestAnalysisPanel(t, `{"choices":[{"message":{"content":"x"}}]}`)
 	m.SetSize(80, 30)
 	m.input.Focus()
 	m.input.SetValue("!   ")
@@ -228,8 +206,7 @@ func TestAnalysisPanelHandleKey_BangBlankIsNoOp(t *testing.T) {
 }
 
 func TestAnalysisPanelHandleKey_AnalysisModeSetsStreamingOrLoading(t *testing.T) {
-	installTestAnalysisProvider(t, `{"choices":[{"message":{"content":"analysis"}}]}`)
-	m := NewAnalysisPanelModel()
+	m := newTestAnalysisPanel(t, `{"choices":[{"message":{"content":"analysis"}}]}`)
 	m.SetSize(80, 30)
 	m.SetScreenContext("browser context")
 	m.input.Focus()
@@ -244,8 +221,7 @@ func TestAnalysisPanelHandleKey_AnalysisModeSetsStreamingOrLoading(t *testing.T)
 }
 
 func TestAnalysisPanelHandleKey_BangCommandModeEmptyNamespaceUsesDefault(t *testing.T) {
-	installTestAnalysisProvider(t, `{"choices":[{"message":{"content":"x"}}]}`)
-	m := NewAnalysisPanelModel()
+	m := newTestAnalysisPanel(t, `{"choices":[{"message":{"content":"x"}}]}`)
 	m.SetSize(80, 30)
 	m.SetNamespace("")
 	m.input.Focus()
@@ -257,8 +233,7 @@ func TestAnalysisPanelHandleKey_BangCommandModeEmptyNamespaceUsesDefault(t *test
 }
 
 func TestAnalysisPanelHandleKey_AnalysisModeWithScreenContext(t *testing.T) {
-	installTestAnalysisProvider(t, `{"choices":[{"message":{"content":"analysis"}}]}`)
-	m := NewAnalysisPanelModel()
+	m := newTestAnalysisPanel(t, `{"choices":[{"message":{"content":"analysis"}}]}`)
 	m.SetSize(80, 30)
 	m.SetScreenContext("on browser, ns=default, viewing pods")
 	m.input.Focus()
@@ -270,8 +245,7 @@ func TestAnalysisPanelHandleKey_AnalysisModeWithScreenContext(t *testing.T) {
 }
 
 func TestAnalysisPanelHandleKey_AnalysisCancelsExistingStream(t *testing.T) {
-	installTestAnalysisProvider(t, `{"choices":[{"message":{"content":"analysis"}}]}`)
-	m := NewAnalysisPanelModel()
+	m := newTestAnalysisPanel(t, `{"choices":[{"message":{"content":"analysis"}}]}`)
 	m.SetSize(80, 30)
 	m.SetScreenContext("browser context")
 	m.input.Focus()
@@ -285,8 +259,7 @@ func TestAnalysisPanelHandleKey_AnalysisCancelsExistingStream(t *testing.T) {
 }
 
 func TestAnalysisPanelHandleKey_BlankQueryUsesClusterSearchPath(t *testing.T) {
-	installTestAnalysisProvider(t, `{"choices":[{"message":{"content":"analysis"}}]}`)
-	m := NewAnalysisPanelModel()
+	m := newTestAnalysisPanel(t, `{"choices":[{"message":{"content":"analysis"}}]}`)
 	m.SetSize(80, 30)
 	m.input.Focus()
 	m.input.SetValue("what is wrong with checkout-api?")

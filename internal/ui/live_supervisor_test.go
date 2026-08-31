@@ -8,14 +8,14 @@ import (
 	"github.com/HediAbed/opsmate/internal/cluster"
 )
 
-type testResourceLiveSet[T any] struct {
+type testResourceLiveSet[T interface{}] struct {
 	changes  chan struct{}
 	state    resourceLiveState[T]
 	stopOnce sync.Once
 	stops    atomic.Int32
 }
 
-func newTestResourceLiveSet[T any](state resourceLiveState[T]) *testResourceLiveSet[T] {
+func newTestResourceLiveSet[T interface{}](state resourceLiveState[T]) *testResourceLiveSet[T] {
 	return &testResourceLiveSet[T]{changes: make(chan struct{}, 1), state: state}
 }
 

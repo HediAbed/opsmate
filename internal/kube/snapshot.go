@@ -110,7 +110,7 @@ type SnapshotCollector struct {
 	resources ResourceReader
 }
 
-type snapshotResult[T any] struct {
+type snapshotResult[T interface{}] struct {
 	items []T
 	err   error
 }
@@ -194,7 +194,7 @@ func (c *SnapshotCollector) collectResources(
 	return pods, deployments, services, events, nodes
 }
 
-func collectSnapshotItems[T any](
+func collectSnapshotItems[T interface{}](
 	reads *sync.WaitGroup,
 	result *snapshotResult[T],
 	read func() ([]T, error),
@@ -431,7 +431,7 @@ func snapshotNodeReady(conditions []corev1.NodeCondition) bool {
 	return false
 }
 
-func sortSnapshotObjects[T any](items []T, identity func(T) (string, string)) {
+func sortSnapshotObjects[T interface{}](items []T, identity func(T) (string, string)) {
 	slices.SortFunc(items, func(left, right T) int {
 		leftNamespace, leftName := identity(left)
 		rightNamespace, rightName := identity(right)
@@ -442,7 +442,7 @@ func sortSnapshotObjects[T any](items []T, identity func(T) (string, string)) {
 	})
 }
 
-func limitSnapshotItems[T any](items []T, limit int) []T {
+func limitSnapshotItems[T interface{}](items []T, limit int) []T {
 	if len(items) <= limit {
 		return items
 	}

@@ -10,8 +10,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/HediAbed/opsmate/internal/cluster"
-	"github.com/HediAbed/opsmate/internal/theme"
-	"github.com/HediAbed/opsmate/tui"
+	"github.com/HediAbed/opsmate/internal/ui/component"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 func (m BrowserModel) View() string {
@@ -105,7 +105,6 @@ func (m BrowserModel) renderTitleBar() string {
 	return lipgloss.NewStyle().MaxWidth(m.width).Background(theme.DarkerBg).Render(bar)
 }
 
-// renderBrowserTabStrip windows tabs around the active resource.
 func renderBrowserTabStrip(active string, maxWidth int) string {
 	if maxWidth < browserTabStripMinViable {
 		return ""
@@ -207,8 +206,8 @@ func (m BrowserModel) renderTableContent(height int) string {
 		return lipgloss.Place(m.width, height, lipgloss.Center, lipgloss.Center, emptyMsg)
 	}
 
-	return tui.NewPanel(theme.BoxStyle).Render(
-		tui.Size{Width: m.width - browserPanelGutter, Height: height - browserPanelGutter},
+	return component.NewPanel(theme.BoxStyle).Render(
+		component.Size{Width: m.width - browserPanelGutter, Height: height - browserPanelGutter},
 		m.resourceTable.View(),
 	)
 }
@@ -231,8 +230,8 @@ func (m BrowserModel) renderSplitContent(height int) string {
 func (m BrowserModel) renderHSplitContent(height int) string {
 	leftW, rightW := browserHorizontalPaneWidths(m.width)
 
-	tableView := tui.NewPanel(theme.BoxStyle).Render(
-		tui.Size{Width: leftW - browserPanelGutter, Height: height - browserPanelGutter},
+	tableView := component.NewPanel(theme.BoxStyle).Render(
+		component.Size{Width: leftW - browserPanelGutter, Height: height - browserPanelGutter},
 		m.resourceTable.View(),
 	)
 
@@ -276,7 +275,7 @@ func (m BrowserModel) renderConfirmBox() string {
 		BorderForeground(borderColor).
 		Padding(1, confirmHorizontalPadding).
 		Foreground(theme.White).
-		Width(tui.FitModalWidth(confirmModalDesiredWidth, m.width)).
+		Width(component.FitModalWidth(confirmModalDesiredWidth, m.width)).
 		MaxWidth(m.width).
 		Align(lipgloss.Center).
 		Render(body)
@@ -313,7 +312,7 @@ func (m BrowserModel) renderScaleBox() string {
 	parts = append(parts, "", m.textInput.View(), "", theme.Dim.Render("enter: confirm | esc: cancel"))
 
 	return lipgloss.NewStyle().Border(lipgloss.ThickBorder()).BorderForeground(theme.NeonCyan).Padding(0, 1).
-		Width(tui.FitModalWidth(scaleModalDesiredWidth, m.width)).MaxWidth(m.width).Render(
+		Width(component.FitModalWidth(scaleModalDesiredWidth, m.width)).MaxWidth(m.width).Render(
 		lipgloss.JoinVertical(lipgloss.Left, parts...),
 	)
 }

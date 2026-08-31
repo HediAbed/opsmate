@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/HediAbed/opsmate/failure"
+	"github.com/HediAbed/opsmate/internal/failure"
 )
 
 func validRuntimeDependencies() RuntimeDependencies {

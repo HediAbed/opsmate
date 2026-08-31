@@ -3,7 +3,7 @@ package ui
 import (
 	"strings"
 
-	"github.com/HediAbed/opsmate/terminal"
+	"github.com/HediAbed/opsmate/internal/terminal"
 )
 
 const maxTerminalLineRunes = 512

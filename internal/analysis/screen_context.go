@@ -7,9 +7,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/HediAbed/opsmate/failure"
 	"github.com/HediAbed/opsmate/internal/cluster"
-	"github.com/HediAbed/opsmate/terminal"
+	"github.com/HediAbed/opsmate/internal/failure"
+	"github.com/HediAbed/opsmate/internal/terminal"
 )
 
 const (

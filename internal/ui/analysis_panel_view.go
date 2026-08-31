@@ -6,8 +6,8 @@ import (
 
 	"charm.land/glamour/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/HediAbed/opsmate/internal/theme"
-	"github.com/HediAbed/opsmate/tui"
+	"github.com/HediAbed/opsmate/internal/ui/component"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 func (m AnalysisPanelModel) View() string {
@@ -54,8 +54,8 @@ func (m AnalysisPanelModel) View() string {
 	)
 
 	style := analysisPanelBoxStyle()
-	return tui.NewPanel(style).Render(
-		tui.Size{
+	return component.NewPanel(style).Render(
+		component.Size{
 			Width:  innerW + style.GetHorizontalFrameSize(),
 			Height: innerH + style.GetVerticalFrameSize(),
 		},
@@ -63,8 +63,6 @@ func (m AnalysisPanelModel) View() string {
 	)
 }
 
-// innerWidth and View both size against this style so their chrome
-// math cannot disagree.
 func analysisPanelBoxStyle() lipgloss.Style {
 	return theme.BoxStyle.BorderForeground(theme.ElectricPurp)
 }
@@ -137,7 +135,6 @@ func (m *AnalysisPanelModel) markdownAtWithFactory(
 	return sanitizeRendered(strings.TrimSpace(rendered))
 }
 
-// sanitizeRendered removes unsafe controls while retaining layout and ANSI styling.
 func sanitizeRendered(value string) string {
 	var sanitized strings.Builder
 	sanitized.Grow(len(value))
@@ -261,7 +258,7 @@ func (m *AnalysisPanelModel) renderResponseBubble(entry *historyEntry, wrap, max
 }
 
 func (m AnalysisPanelModel) innerWidth() int {
-	inner := tui.NewPanel(analysisPanelBoxStyle()).ContentSize(tui.Size{
+	inner := component.NewPanel(analysisPanelBoxStyle()).ContentSize(component.Size{
 		Width:  m.width - analysisPanelOuterBorderChrome,
 		Height: m.height,
 	})

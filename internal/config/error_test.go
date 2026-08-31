@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/HediAbed/opsmate/failure"
+	"github.com/HediAbed/opsmate/internal/failure"
 )
 
 func TestDotEnvErrorContract(t *testing.T) {

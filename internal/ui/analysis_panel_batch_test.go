@@ -3,8 +3,6 @@ package ui
 import (
 	"strings"
 	"testing"
-
-	"github.com/HediAbed/opsmate/internal/analysis"
 )
 
 func TestSetVisible_CancelsActiveStream(t *testing.T) {
@@ -60,29 +58,6 @@ func TestRetryLastQuery_DoesNotRestoreWhileStreaming(t *testing.T) {
 	m.retryLastQuery()
 	if got := m.input.Value(); got != "" {
 		t.Errorf("retryLastQuery must be a no-op while streaming; got %q", got)
-	}
-}
-
-func TestClassifyKubectlCommand(t *testing.T) {
-	cases := []struct {
-		cmd      string
-		wantKind analysis.CommandRisk
-	}{
-		{"kubectl get pods", analysis.RiskReadOnly},
-		{"kubectl describe pod web", analysis.RiskReadOnly},
-		{"kubectl logs web -f", analysis.RiskReadOnly},
-		{"kubectl scale deployment web --replicas=3", analysis.RiskMutating},
-		{"kubectl rollout restart deployment web", analysis.RiskMutating},
-		{"kubectl delete pod web", analysis.RiskDestructive},
-		{"kubectl drain node-1", analysis.RiskDestructive},
-		{"kubectl banana pods", analysis.RiskUnknown},
-		{"", analysis.RiskUnknown},
-	}
-	for _, tc := range cases {
-		got, _ := analysis.ClassifyKubectlCommand(tc.cmd)
-		if got != tc.wantKind {
-			t.Errorf("ClassifyKubectlCommand(%q) = %v; want %v", tc.cmd, got, tc.wantKind)
-		}
 	}
 }
 

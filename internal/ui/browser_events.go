@@ -8,7 +8,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/HediAbed/opsmate/internal/analysis"
 	"github.com/HediAbed/opsmate/internal/cluster"
-	"github.com/HediAbed/opsmate/internal/theme"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 func (m BrowserModel) updateBrowserInputMessage(msg tea.Msg) (BrowserModel, tea.Cmd) {
@@ -191,7 +191,6 @@ func (m BrowserModel) handleBrowseClick(column, row int) (BrowserModel, tea.Cmd)
 	return m, nil
 }
 
-// tableFirstRowY derives the first data-row position from rendered chrome.
 func (m BrowserModel) tableFirstRowY() int {
 	firstRow := lipgloss.Height(m.renderTitleBar()) + tableHeaderChromeRows
 	if filter := m.renderFilterBar(); filter != "" {

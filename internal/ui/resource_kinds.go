@@ -7,7 +7,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/HediAbed/opsmate/failure"
+	"github.com/HediAbed/opsmate/internal/failure"
 	"github.com/HediAbed/opsmate/internal/kube"
 )
 

@@ -12,7 +12,7 @@ builds:
       - -trimpath
       - -buildvcs=false
     ldflags:
-      - -s -w
+      - -s -w -X github.com/HediAbed/opsmate/internal/version.release={{ .Version }}
     goos:
       - linux
       - darwin

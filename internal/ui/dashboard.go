@@ -11,10 +11,9 @@ import (
 
 	"github.com/HediAbed/opsmate/internal/analysis"
 	"github.com/HediAbed/opsmate/internal/cluster"
-	"github.com/HediAbed/opsmate/internal/theme"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
-// Metrics require polling because Kubernetes does not expose a watch stream for them.
 const dashMetricsRefreshInterval = 30 * time.Second
 
 const (
@@ -86,6 +85,7 @@ type DashboardModel struct {
 
 	namespace string
 	cluster   clusterCommands
+	analysis  analysis.Service
 
 	pods        []cluster.Pod
 	deployments []cluster.Deployment
@@ -120,6 +120,10 @@ type DashboardModel struct {
 }
 
 func NewDashboardModel(namespace string, commands clusterCommands) DashboardModel {
+	return newDashboardWithAnalysis(namespace, commands, analysis.NewService(nil))
+}
+
+func newDashboardWithAnalysis(namespace string, commands clusterCommands, analysisService analysis.Service) DashboardModel {
 	loadingSpinner := spinner.New(
 		spinner.WithSpinner(spinner.Dot),
 		spinner.WithStyle(theme.SpinnerStyle),
@@ -137,6 +141,7 @@ func NewDashboardModel(namespace string, commands clusterCommands) DashboardMode
 	return DashboardModel{
 		namespace: namespace,
 		cluster:   commands,
+		analysis:  analysisService,
 		podTable:  podTable,
 		spinner:   loadingSpinner,
 		loading:   true,

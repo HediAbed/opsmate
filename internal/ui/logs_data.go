@@ -2,7 +2,6 @@ package ui
 
 import (
 	tea "charm.land/bubbletea/v2"
-	"github.com/HediAbed/opsmate/internal/analysis"
 	"github.com/HediAbed/opsmate/internal/cluster"
 	"github.com/HediAbed/opsmate/internal/kube"
 )
@@ -36,7 +35,6 @@ func (m LogsModel) SelectedPod() string {
 	return m.selectedPod
 }
 
-// selectedPodNS resolves namespace in scoped and cluster-wide views.
 func (m LogsModel) selectedPodNS() string {
 	if m.selectedPodNamespace != "" {
 		return m.selectedPodNamespace
@@ -145,7 +143,7 @@ func (m *LogsModel) explainSelectedLine(line, context string) tea.Cmd {
 	requestID := m.explainRequestID
 	pod := m.selectedPodIdentity()
 	container := m.selectedContainer
-	command := analysis.ExplainLogLine(line, context, pod.Name)
+	command := m.analysis.ExplainLogLine(line, context, pod.Name)
 	return func() tea.Msg {
 		return logExplainResultMsg{
 			requestID: requestID,

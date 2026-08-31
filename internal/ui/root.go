@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"time"
 
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textinput"
@@ -11,7 +10,7 @@ import (
 	"github.com/HediAbed/opsmate/internal/cluster"
 	"github.com/HediAbed/opsmate/internal/kube"
 	"github.com/HediAbed/opsmate/internal/session"
-	"github.com/HediAbed/opsmate/internal/theme"
+	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 type sessionStateSaver func(session.SessionState) error
@@ -40,11 +39,6 @@ const (
 	portSpecPartCount               = 2
 )
 
-const (
-	clusterReadTimeout   = 15 * time.Second
-	clusterActionTimeout = 30 * time.Second
-)
-
 type rootScreenTab struct {
 	key  string
 	name string
@@ -60,20 +54,17 @@ var rootScreenTabs = []rootScreenTab{
 	{key: "6", name: "CRDs", id: ScreenCRDs},
 }
 
-// GoBackMsg is sent by child screens to signal "return to previous screen".
 type GoBackMsg struct{}
 
-// ClearStatusMsg signals that a transient status message should be cleared.
 type ClearStatusMsg struct{}
 
 type initializeRootMsg struct{}
 
-// DrillDownMsg is sent to navigate across screens with context.
 type DrillDownMsg struct {
 	Screen       screenID
 	ResourceType string
 	ResourceName string
-	ResourceNS   string // namespace of the resource (needed for all-namespaces mode)
+	ResourceNS   string
 }
 
 type RootModel struct {
@@ -152,12 +143,12 @@ func NewRootModel(namespace string, runtime RuntimeDependencies) (RootModel, err
 		runtime.ClusterOperations,
 	)
 	helm := newNativeHelmCommands(runtime.Context, runtime.HelmReleases)
-	clusterAnalysis := newNativeClusterAnalyzer(runtime.Context, runtime.ClusterSnapshots)
+	clusterAnalysis := newNativeClusterAnalyzer(runtime.Context, runtime.ClusterSnapshots, runtime.Analysis)
 	namespaceSpinner := spinner.New()
 	namespaceSpinner.Spinner = spinner.Dot
 	namespaceSpinner.Style = theme.SpinnerStyle
 
-	analysisPanel := NewAnalysisPanelModel()
+	analysisPanel := newAnalysisPanelWithService(runtime.Analysis)
 	analysisPanel.analyzeCluster = clusterAnalysis.Analyze
 	analysisPanel.SetNamespace(namespace)
 
@@ -184,9 +175,9 @@ func NewRootModel(namespace string, runtime RuntimeDependencies) (RootModel, err
 		namespace:        namespace,
 		runtime:          runtime,
 		operations:       operations,
-		dashboard:        NewDashboardModel(namespace, commands),
-		browser:          NewBrowserModel(namespace, commands, operations),
-		logs:             NewLogsModel(namespace, commands, operations),
+		dashboard:        newDashboardWithAnalysis(namespace, commands, runtime.Analysis),
+		browser:          newBrowserWithAnalysis(namespace, commands, operations, runtime.Analysis),
+		logs:             newLogsWithAnalysis(namespace, commands, operations, runtime.Analysis),
 		helm:             NewHelmModel(namespace, helm),
 		crds:             NewCRDsModel(namespace, commands),
 		analysisPanel:    analysisPanel,

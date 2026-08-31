@@ -15,7 +15,7 @@ import (
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"sigs.k8s.io/yaml"
 
-	"github.com/HediAbed/opsmate/failure"
+	"github.com/HediAbed/opsmate/internal/failure"
 )
 
 func TestResourceYAMLValidatesRequestAndDependencies(t *testing.T) {

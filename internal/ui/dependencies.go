@@ -5,7 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/HediAbed/opsmate/failure"
+	"github.com/HediAbed/opsmate/internal/analysis"
+	"github.com/HediAbed/opsmate/internal/failure"
 	"github.com/HediAbed/opsmate/internal/kube"
 )
 
@@ -31,6 +32,7 @@ type RuntimeDependencies struct {
 	ClusterObserver   kube.ResourceObserver
 	ClusterOperations kube.ClusterOperations
 	HelmReleases      kube.HelmReader
+	Analysis          analysis.Service
 }
 
 type DependencyError struct {

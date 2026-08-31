@@ -214,18 +214,18 @@ func (m RootModel) updateRootOperationMessage(msg tea.Msg) (tea.Model, tea.Cmd) 
 }
 
 func (m *RootModel) handlePortForwardStarted(msg portForwardStartedMsg) tea.Cmd {
-	if msg.err != nil {
-		m.setError(msg.err)
+	if msg.Err != nil {
+		m.setError(msg.Err)
 		return nil
 	}
 	m.pfSessions = m.operations.PortForwards()
-	return m.operations.WaitForPortForwardExit(msg.session)
+	return m.operations.WaitForPortForwardExit(msg.Session)
 }
 
 func (m *RootModel) handlePortForwardStopped(msg portForwardStoppedMsg) {
 	m.pfSessions = m.operations.PortForwards()
-	if msg.err != nil {
-		m.setError(msg.err)
+	if msg.Err != nil {
+		m.setError(msg.Err)
 	}
 	if len(m.pfSessions) == 0 {
 		m.pfCursor = 0
