@@ -3,8 +3,6 @@ package ui
 import (
 	"context"
 
-	tea "charm.land/bubbletea/v2"
-
 	"github.com/HediAbed/opsmate/internal/analysis"
 	"github.com/HediAbed/opsmate/internal/kube"
 	clusterui "github.com/HediAbed/opsmate/internal/ui/cluster"
@@ -15,12 +13,8 @@ type clusterOperations = clusterui.Operations
 type clusterSessionOperations = clusterui.SessionOperations
 type helmCommands = clusterui.HelmCommands
 type clusterAnalyzer = clusterui.Analyzer
-type resourceLiveState[T interface{}] = clusterui.LiveState[T]
-type resourceLiveSet[T interface{}] = clusterui.LiveSet[T]
 type portForwardStartedMsg = clusterui.PortForwardStartedMsg
 type portForwardStoppedMsg = clusterui.PortForwardStoppedMsg
-type helmReleasesMsg = clusterui.HelmReleasesMsg
-type helmValuesMsg = clusterui.HelmValuesMsg
 
 func newNativeClusterCommands(
 	parent context.Context,
@@ -50,8 +44,4 @@ func newNativeClusterAnalyzer(
 	service analysis.Service,
 ) clusterAnalyzer {
 	return clusterui.NewAnalyzer(parent, snapshots, service)
-}
-
-func unavailableClusterAnalysis(systemPrompt, question, conversationMemory, namespace string) tea.Cmd {
-	return clusterui.UnavailableAnalysis(systemPrompt, question, conversationMemory, namespace)
 }

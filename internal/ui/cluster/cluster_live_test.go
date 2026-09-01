@@ -87,3 +87,75 @@ func TestNativeClusterObservationPropagatesObserverErrors(t *testing.T) {
 		t.Fatalf("ObservePods() = set:%v error:%v", set, err)
 	}
 }
+
+type observedLiveState struct {
+	itemCount int
+	ready     bool
+	err       error
+}
+
+func summarizeLiveSet[T interface{}](set LiveSet[T], err error) observedLiveState {
+	if err != nil {
+		return observedLiveState{err: err}
+	}
+	state := set.State()
+	set.Stop()
+	return observedLiveState{itemCount: len(state.Items), ready: state.Ready, err: state.Err}
+}
+
+type observationAdapterCase struct {
+	name    string
+	observe func(ResourceCommands) observedLiveState
+}
+
+func observationAdapterCases() []observationAdapterCase {
+	const namespace = "payments"
+	return []observationAdapterCase{
+		{name: "pods", observe: func(commands ResourceCommands) observedLiveState {
+			return summarizeLiveSet(commands.ObservePods(namespace))
+		}},
+		{name: "deployments", observe: func(commands ResourceCommands) observedLiveState {
+			return summarizeLiveSet(commands.ObserveDeployments(namespace))
+		}},
+		{name: "events", observe: func(commands ResourceCommands) observedLiveState {
+			return summarizeLiveSet(commands.ObserveEvents(namespace))
+		}},
+		{name: "ingresses", observe: func(commands ResourceCommands) observedLiveState {
+			return summarizeLiveSet(commands.ObserveIngresses(namespace))
+		}},
+		{name: "network policies", observe: func(commands ResourceCommands) observedLiveState {
+			return summarizeLiveSet(commands.ObserveNetworkPolicies(namespace))
+		}},
+		{name: "persistent volume claims", observe: func(commands ResourceCommands) observedLiveState {
+			return summarizeLiveSet(commands.ObservePersistentVolumeClaims(namespace))
+		}},
+		{name: "cron jobs", observe: func(commands ResourceCommands) observedLiveState {
+			return summarizeLiveSet(commands.ObserveCronJobs(namespace))
+		}},
+		{name: "horizontal pod autoscalers", observe: func(commands ResourceCommands) observedLiveState {
+			return summarizeLiveSet(commands.ObserveHorizontalPodAutoscalers(namespace))
+		}},
+		{name: "secrets", observe: func(commands ResourceCommands) observedLiveState {
+			return summarizeLiveSet(commands.ObserveSecrets(namespace))
+		}},
+		{name: "replica sets", observe: func(commands ResourceCommands) observedLiveState {
+			return summarizeLiveSet(commands.ObserveReplicaSets(namespace))
+		}},
+	}
+}
+
+func TestNativeClusterObservationAdaptersProjectResources(t *testing.T) {
+	for _, test := range observationAdapterCases() {
+		t.Run(test.name, func(t *testing.T) {
+			observer := &testResourceObserver{}
+			commands := NewCommands(context.Background(), &testResourceReader{}, observer)
+			state := test.observe(commands)
+			if state.err != nil || !state.ready || state.itemCount != 1 {
+				t.Fatalf("observed state = %+v", state)
+			}
+			if len(observer.calls) != 1 || observer.calls[0] != test.name {
+				t.Fatalf("observer calls = %v, want [%s]", observer.calls, test.name)
+			}
+		})
+	}
+}

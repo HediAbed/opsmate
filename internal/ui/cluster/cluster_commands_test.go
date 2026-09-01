@@ -16,6 +16,7 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
@@ -67,54 +68,64 @@ func (o *testResourceObserver) record(name string) error {
 	return o.err
 }
 
+func observedObjectMetadata(name string) metav1.ObjectMeta {
+	return metav1.ObjectMeta{Name: name, Namespace: "payments"}
+}
+
 func (o *testResourceObserver) ObservePods(context.Context, string) (kube.LiveSet[corev1.Pod], error) {
 	err := o.record("pods")
-	return newTestKubeLiveSet([]corev1.Pod{{}}, err), err
+	return newTestKubeLiveSet([]corev1.Pod{{ObjectMeta: observedObjectMetadata("observed-pod")}}, err), err
 }
 
 func (o *testResourceObserver) ObserveDeployments(context.Context, string) (kube.LiveSet[appsv1.Deployment], error) {
 	err := o.record("deployments")
-	return newTestKubeLiveSet([]appsv1.Deployment{{}}, err), err
+	item := appsv1.Deployment{ObjectMeta: observedObjectMetadata("observed-deployment")}
+	return newTestKubeLiveSet([]appsv1.Deployment{item}, err), err
 }
 
 func (o *testResourceObserver) ObserveEvents(context.Context, string) (kube.LiveSet[corev1.Event], error) {
 	err := o.record("events")
-	return newTestKubeLiveSet([]corev1.Event{{}}, err), err
+	return newTestKubeLiveSet([]corev1.Event{{ObjectMeta: observedObjectMetadata("observed-event")}}, err), err
 }
 
 func (o *testResourceObserver) ObserveIngresses(context.Context, string) (kube.LiveSet[networkingv1.Ingress], error) {
 	err := o.record("ingresses")
-	return newTestKubeLiveSet([]networkingv1.Ingress{{}}, err), err
+	return newTestKubeLiveSet([]networkingv1.Ingress{{ObjectMeta: observedObjectMetadata("observed-ingress")}}, err), err
 }
 
 func (o *testResourceObserver) ObserveNetworkPolicies(context.Context, string) (kube.LiveSet[networkingv1.NetworkPolicy], error) {
 	err := o.record("network policies")
-	return newTestKubeLiveSet([]networkingv1.NetworkPolicy{{}}, err), err
+	item := networkingv1.NetworkPolicy{ObjectMeta: observedObjectMetadata("observed-network-policy")}
+	return newTestKubeLiveSet([]networkingv1.NetworkPolicy{item}, err), err
 }
 
 func (o *testResourceObserver) ObservePersistentVolumeClaims(context.Context, string) (kube.LiveSet[corev1.PersistentVolumeClaim], error) {
 	err := o.record("persistent volume claims")
-	return newTestKubeLiveSet([]corev1.PersistentVolumeClaim{{}}, err), err
+	item := corev1.PersistentVolumeClaim{ObjectMeta: observedObjectMetadata("observed-pvc")}
+	return newTestKubeLiveSet([]corev1.PersistentVolumeClaim{item}, err), err
 }
 
 func (o *testResourceObserver) ObserveCronJobs(context.Context, string) (kube.LiveSet[batchv1.CronJob], error) {
 	err := o.record("cron jobs")
-	return newTestKubeLiveSet([]batchv1.CronJob{{}}, err), err
+	return newTestKubeLiveSet([]batchv1.CronJob{{ObjectMeta: observedObjectMetadata("observed-cron-job")}}, err), err
 }
 
 func (o *testResourceObserver) ObserveHorizontalPodAutoscalers(context.Context, string) (kube.LiveSet[autoscalingv2.HorizontalPodAutoscaler], error) {
 	err := o.record("horizontal pod autoscalers")
-	return newTestKubeLiveSet([]autoscalingv2.HorizontalPodAutoscaler{{}}, err), err
+	item := autoscalingv2.HorizontalPodAutoscaler{ObjectMeta: observedObjectMetadata("observed-hpa")}
+	return newTestKubeLiveSet([]autoscalingv2.HorizontalPodAutoscaler{item}, err), err
 }
 
 func (o *testResourceObserver) ObserveSecrets(context.Context, string) (kube.LiveSet[kube.ResourceMetadata], error) {
 	err := o.record("secrets")
-	return newTestKubeLiveSet([]kube.ResourceMetadata{{}}, err), err
+	item := kube.ResourceMetadata{Name: "observed-secret", Namespace: "payments"}
+	return newTestKubeLiveSet([]kube.ResourceMetadata{item}, err), err
 }
 
 func (o *testResourceObserver) ObserveReplicaSets(context.Context, string) (kube.LiveSet[appsv1.ReplicaSet], error) {
 	err := o.record("replica sets")
-	return newTestKubeLiveSet([]appsv1.ReplicaSet{{}}, err), err
+	item := appsv1.ReplicaSet{ObjectMeta: observedObjectMetadata("observed-replica-set")}
+	return newTestKubeLiveSet([]appsv1.ReplicaSet{item}, err), err
 }
 
 func (r *testResourceReader) record(name string) error {

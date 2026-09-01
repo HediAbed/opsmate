@@ -253,16 +253,20 @@ func listMetadata(ctx context.Context, manager *Manager, subject Subject, resour
 		if err != nil {
 			return nil, err
 		}
-		metadata := make([]ResourceMetadata, 0, len(list.Items))
-		for _, item := range list.Items {
-			metadata = append(metadata, ResourceMetadata{
-				Name:      item.Name,
-				Namespace: item.Namespace,
-				CreatedAt: item.CreationTimestamp.Time,
-			})
-		}
-		return metadata, nil
+		return projectResourceMetadata(list.Items), nil
 	})
+}
+
+func projectResourceMetadata(items []metav1.PartialObjectMetadata) []ResourceMetadata {
+	metadata := make([]ResourceMetadata, 0, len(items))
+	for _, item := range items {
+		metadata = append(metadata, ResourceMetadata{
+			Name:      item.Name,
+			Namespace: item.Namespace,
+			CreatedAt: item.CreationTimestamp.Time,
+		})
+	}
+	return metadata
 }
 
 func (m *Manager) ListRBAC(ctx context.Context, namespace string) (RBACResources, error) {
@@ -275,39 +279,19 @@ func (m *Manager) ListRBAC(ctx context.Context, namespace string) (RBACResources
 	}
 	var reads sync.WaitGroup
 	serviceAccounts := collectRBAC(&reads, SubjectServiceAccounts, func() ([]corev1.ServiceAccount, error) {
-		list, listErr := clients.Kubernetes().CoreV1().ServiceAccounts(namespace).List(ctx, metav1.ListOptions{})
-		if listErr != nil {
-			return nil, listErr
-		}
-		return list.Items, listErr
+		return listServiceAccounts(ctx, clients, namespace)
 	})
 	roles := collectRBAC(&reads, SubjectRoles, func() ([]rbacv1.Role, error) {
-		list, listErr := clients.Kubernetes().RbacV1().Roles(namespace).List(ctx, metav1.ListOptions{})
-		if listErr != nil {
-			return nil, listErr
-		}
-		return list.Items, listErr
+		return listRoles(ctx, clients, namespace)
 	})
 	roleBindings := collectRBAC(&reads, SubjectRoleBindings, func() ([]rbacv1.RoleBinding, error) {
-		list, listErr := clients.Kubernetes().RbacV1().RoleBindings(namespace).List(ctx, metav1.ListOptions{})
-		if listErr != nil {
-			return nil, listErr
-		}
-		return list.Items, listErr
+		return listRoleBindings(ctx, clients, namespace)
 	})
 	clusterRoles := collectRBAC(&reads, SubjectClusterRoles, func() ([]rbacv1.ClusterRole, error) {
-		list, listErr := clients.Kubernetes().RbacV1().ClusterRoles().List(ctx, metav1.ListOptions{})
-		if listErr != nil {
-			return nil, listErr
-		}
-		return list.Items, listErr
+		return listClusterRoles(ctx, clients)
 	})
 	clusterRoleBindings := collectRBAC(&reads, SubjectClusterRoleBindings, func() ([]rbacv1.ClusterRoleBinding, error) {
-		list, listErr := clients.Kubernetes().RbacV1().ClusterRoleBindings().List(ctx, metav1.ListOptions{})
-		if listErr != nil {
-			return nil, listErr
-		}
-		return list.Items, listErr
+		return listClusterRoleBindings(ctx, clients)
 	})
 	reads.Wait()
 	resources := RBACResources{
@@ -318,6 +302,46 @@ func (m *Manager) ListRBAC(ctx context.Context, namespace string) (RBACResources
 		ClusterRoleBindings: clusterRoleBindings.items,
 	}
 	return resources, errors.Join(serviceAccounts.err, roles.err, roleBindings.err, clusterRoles.err, clusterRoleBindings.err)
+}
+
+func listServiceAccounts(ctx context.Context, clients *Clients, namespace string) ([]corev1.ServiceAccount, error) {
+	list, err := clients.Kubernetes().CoreV1().ServiceAccounts(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return list.Items, nil
+}
+
+func listRoles(ctx context.Context, clients *Clients, namespace string) ([]rbacv1.Role, error) {
+	list, err := clients.Kubernetes().RbacV1().Roles(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return list.Items, nil
+}
+
+func listRoleBindings(ctx context.Context, clients *Clients, namespace string) ([]rbacv1.RoleBinding, error) {
+	list, err := clients.Kubernetes().RbacV1().RoleBindings(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return list.Items, nil
+}
+
+func listClusterRoles(ctx context.Context, clients *Clients) ([]rbacv1.ClusterRole, error) {
+	list, err := clients.Kubernetes().RbacV1().ClusterRoles().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return list.Items, nil
+}
+
+func listClusterRoleBindings(ctx context.Context, clients *Clients) ([]rbacv1.ClusterRoleBinding, error) {
+	list, err := clients.Kubernetes().RbacV1().ClusterRoleBindings().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return list.Items, nil
 }
 
 type rbacCollection[T interface{}] struct {

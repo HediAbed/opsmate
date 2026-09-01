@@ -6,7 +6,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/HediAbed/opsmate/internal/analysis"
 	"github.com/HediAbed/opsmate/internal/failure"
 )
 
@@ -112,19 +111,11 @@ func (m *RootModel) updateAnalysisScreenContext() {
 func (m RootModel) currentScreenContext() (string, error) {
 	switch m.screen {
 	case ScreenDashboard:
-		return analysis.BuildDashboardContext(analysis.DashboardContextInput{
-			Namespace:   m.namespace,
-			Pods:        m.dashboard.pods,
-			Deployments: m.dashboard.deployments,
-			Events:      m.dashboard.events,
-		}), nil
+		return m.dashboard.AnalysisContext(), nil
 	case ScreenBrowser:
 		return m.browserScreenContext()
 	case ScreenLogs:
-		return analysis.BuildLogsContext(
-			m.namespace, m.logs.selectedPod,
-			m.logs.allLines, m.logs.filter,
-		)
+		return m.logs.AnalysisContext()
 	case ScreenAnalysis, ScreenHelm, ScreenCRDs:
 		return "", nil
 	default:
@@ -133,38 +124,7 @@ func (m RootModel) currentScreenContext() (string, error) {
 }
 
 func (m RootModel) browserScreenContext() (string, error) {
-	selectedIdentity, _ := m.browser.selectedIdentity()
-	input, err := analysis.NewBrowserContextInput(
-		analysis.BrowserContextSelection{
-			Namespace:         m.namespace,
-			Resource:          analysis.BrowserResourceKind(m.browser.resourceType),
-			SelectedName:      selectedIdentity.Name,
-			SelectedNamespace: selectedIdentity.Namespace,
-			DetailContent:     m.browser.providerDetailContext(),
-		},
-		analysis.BrowserSnapshot{
-			Pods:            m.browser.pods,
-			Deployments:     m.browser.deployments,
-			Services:        m.browser.services,
-			StatefulSets:    m.browser.statefulsets,
-			DaemonSets:      m.browser.daemonsets,
-			ConfigMaps:      m.browser.configmaps,
-			Nodes:           m.browser.nodes,
-			Jobs:            m.browser.jobs,
-			Ingresses:       m.browser.ingresses,
-			NetworkPolicies: m.browser.networkpolicies,
-			PVCs:            m.browser.pvcs,
-			CronJobs:        m.browser.cronjobs,
-			HPAs:            m.browser.hpas,
-			Secrets:         m.browser.secrets,
-			ReplicaSets:     m.browser.replicasets,
-			RBAC:            m.browser.rbac,
-		},
-	)
-	if err != nil {
-		return "", err
-	}
-	return analysis.BuildBrowserContext(input)
+	return m.browser.AnalysisContext()
 }
 
 func (m RootModel) activeScreenHasInputFocus() bool {
@@ -184,7 +144,7 @@ func (m RootModel) activeScreenHasInputFocus() bool {
 }
 
 func (m RootModel) activeScreenHandlesInterrupt() bool {
-	return m.screen == ScreenBrowser && m.browser.state == stateShell
+	return m.screen == ScreenBrowser && m.browser.InShell()
 }
 
 func (m RootModel) updateActiveScreen(msg tea.Msg) (tea.Model, tea.Cmd) {

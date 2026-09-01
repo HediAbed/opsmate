@@ -4,14 +4,15 @@ import (
 	"testing"
 
 	"github.com/HediAbed/opsmate/internal/cluster"
+	"github.com/HediAbed/opsmate/internal/ui/screen"
 )
 
 func TestCollectSearchCorpus_DedupsAcrossSources(t *testing.T) {
 	m := newTestRootModel(t, "default")
 
 	shared := cluster.Pod{Name: "web-7d9f", Namespace: "default"}
-	m.dashboard.pods = []cluster.Pod{shared}
-	m.browser.pods = []cluster.Pod{shared}
+	seedRootBrowser(&m, cluster.PodsMsg{Pods: []cluster.Pod{shared}})
+	m.logs, _ = m.logs.Update(cluster.PodsMsg{Pods: []cluster.Pod{shared}})
 
 	got := m.collectSearchCorpus()
 	hits := 0
@@ -27,7 +28,7 @@ func TestCollectSearchCorpus_DedupsAcrossSources(t *testing.T) {
 
 func TestCollectSearchCorpus_SkipsNamelessEntries(t *testing.T) {
 	m := newTestRootModel(t, "default")
-	m.browser.pods = []cluster.Pod{{Name: "", Namespace: "default"}}
+	seedRootBrowser(&m, cluster.PodsMsg{Pods: []cluster.Pod{{Name: "", Namespace: "default"}}})
 
 	got := m.collectSearchCorpus()
 	if len(got) != 0 {
@@ -37,19 +38,29 @@ func TestCollectSearchCorpus_SkipsNamelessEntries(t *testing.T) {
 
 func TestCollectSearchCorpus_CoversAllResourceKinds(t *testing.T) {
 	m := newTestRootModel(t, "default")
-	m.browser.pods = []cluster.Pod{{Name: "p", Namespace: "ns"}}
-	m.browser.deployments = []cluster.Deployment{{Name: "d", Namespace: "ns"}}
-	m.browser.services = []cluster.Service{{Name: "s", Namespace: "ns"}}
-	m.browser.statefulsets = []cluster.StatefulSet{{Name: "ss", Namespace: "ns"}}
-	m.browser.daemonsets = []cluster.DaemonSet{{Name: "ds", Namespace: "ns"}}
-	m.browser.configmaps = []cluster.ConfigMap{{Name: "cm", Namespace: "ns"}}
-	m.browser.jobs = []cluster.Job{{Name: "j", Namespace: "ns"}}
+	seedRootBrowser(&m,
+		cluster.PodsMsg{Pods: []cluster.Pod{{Name: "p", Namespace: "ns"}}},
+		cluster.DeploymentsMsg{Deployments: []cluster.Deployment{{Name: "d", Namespace: "ns"}}},
+		cluster.ServicesMsg{Services: []cluster.Service{{Name: "s", Namespace: "ns"}}},
+		cluster.StatefulSetsMsg{StatefulSets: []cluster.StatefulSet{{Name: "ss", Namespace: "ns"}}},
+		cluster.DaemonSetsMsg{DaemonSets: []cluster.DaemonSet{{Name: "ds", Namespace: "ns"}}},
+		cluster.ConfigMapsMsg{ConfigMaps: []cluster.ConfigMap{{Name: "cm", Namespace: "ns"}}},
+		cluster.JobsMsg{Jobs: []cluster.Job{{Name: "j", Namespace: "ns"}}},
+	)
 
-	kinds := map[string]bool{}
+	kinds := map[screen.ResourceKind]bool{}
 	for _, r := range m.collectSearchCorpus() {
 		kinds[r.Kind] = true
 	}
-	wantKinds := []string{"pod", "deployment", "service", "statefulset", "daemonset", "configmap", "job"}
+	wantKinds := []screen.ResourceKind{
+		screen.ResourceKindPod,
+		screen.ResourceKindDeployment,
+		screen.ResourceKindService,
+		screen.ResourceKindStatefulSet,
+		screen.ResourceKindDaemonSet,
+		screen.ResourceKindConfigMap,
+		screen.ResourceKindJob,
+	}
 	for _, k := range wantKinds {
 		if !kinds[k] {
 			t.Errorf("corpus is missing kind %q", k)
@@ -59,11 +70,11 @@ func TestCollectSearchCorpus_CoversAllResourceKinds(t *testing.T) {
 
 func TestFilterSearchResults_SubstringCaseInsensitive(t *testing.T) {
 	m := newTestRootModel(t, "default")
-	m.browser.pods = []cluster.Pod{
+	seedRootBrowser(&m, cluster.PodsMsg{Pods: []cluster.Pod{
 		{Name: "WEB-frontend", Namespace: "default"},
 		{Name: "api-backend", Namespace: "default"},
 		{Name: "db-primary", Namespace: "default"},
-	}
+	}})
 	m.searchCorpus = m.collectSearchCorpus()
 
 	got := m.filterSearchResults("web")
@@ -84,10 +95,10 @@ func TestFilterSearchResults_SubstringCaseInsensitive(t *testing.T) {
 
 func TestFilterSearchResults_EmptyQueryReturnsAll(t *testing.T) {
 	m := newTestRootModel(t, "default")
-	m.browser.pods = []cluster.Pod{
+	seedRootBrowser(&m, cluster.PodsMsg{Pods: []cluster.Pod{
 		{Name: "a", Namespace: "ns"},
 		{Name: "b", Namespace: "ns"},
-	}
+	}})
 	m.searchCorpus = m.collectSearchCorpus()
 	got := m.filterSearchResults("")
 	if len(got) != 2 {
@@ -97,15 +108,16 @@ func TestFilterSearchResults_EmptyQueryReturnsAll(t *testing.T) {
 
 func TestOpenSearch_PopulatesCorpusOnce(t *testing.T) {
 	m := newTestRootModel(t, "default")
-	m.browser.pods = []cluster.Pod{
-		{Name: "first", Namespace: "ns"},
-	}
+	seedRootBrowser(&m, cluster.PodsMsg{Pods: []cluster.Pod{{Name: "first", Namespace: "ns"}}})
 	m.openSearch()
 	if len(m.searchCorpus) != 1 {
 		t.Fatalf("openSearch should snapshot the live data into searchCorpus, got %d", len(m.searchCorpus))
 	}
 
-	m.browser.pods = append(m.browser.pods, cluster.Pod{Name: "second", Namespace: "ns"})
+	seedRootBrowser(&m, cluster.PodsMsg{Pods: []cluster.Pod{
+		{Name: "first", Namespace: "ns"},
+		{Name: "second", Namespace: "ns"},
+	}})
 	got := m.filterSearchResults("")
 	if len(got) != 1 {
 		t.Errorf("filter must read from the cached corpus snapshot, got %d", len(got))

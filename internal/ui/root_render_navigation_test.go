@@ -113,10 +113,10 @@ func TestRootPaletteCoversPortForwardAndActiveBrowserPaths(t *testing.T) {
 
 func TestRootDrillDownSkipsMissingOrUnsupportedTargets(t *testing.T) {
 	model := freshRoot(t)
-	model.logs.selectedPod = "retained"
+	model.logs.SetPod("retained")
 	model.prepareLogDrillDown(DrillDownMsg{Screen: ScreenLogs})
-	if model.logs.selectedPod != "retained" {
-		t.Errorf("empty log target changed selection to %q", model.logs.selectedPod)
+	if model.logs.SelectedPod() != "retained" {
+		t.Errorf("empty log target changed selection to %q", model.logs.SelectedPod())
 	}
 
 	for _, screen := range []screenID{ScreenDashboard, ScreenAnalysis, ScreenHelm, ScreenCRDs, screenID(255)} {
@@ -208,7 +208,9 @@ func TestRootPortForwardModalRendersUnselectedAndConfirmationRows(t *testing.T) 
 func TestRootResizeAndAnalysisPanelHeightBoundaryPaths(t *testing.T) {
 	model := newTestRootModel(t, "default")
 	model.resizeChildren()
-	if model.dashboard.width != 0 || model.browser.width != 0 {
+	dashboardWidth, _ := model.dashboard.Size()
+	browserWidth, _ := model.browser.Size()
+	if dashboardWidth != 0 || browserWidth != 0 {
 		t.Error("zero-sized root resized child screens")
 	}
 
@@ -227,8 +229,8 @@ func TestRootContextErrorsClearAnalysisEvidence(t *testing.T) {
 	model.analysisPanel.SetScreenContext("stale")
 	model.screen = screenID(255)
 	model.updateAnalysisScreenContext()
-	if model.err == nil || model.analysisPanel.screenContext != "" {
-		t.Fatalf("invalid screen context: err=%v context=%q", model.err, model.analysisPanel.screenContext)
+	if model.err == nil || model.analysisPanel.ScreenContext() != "" {
+		t.Fatalf("invalid screen context: err=%v context=%q", model.err, model.analysisPanel.ScreenContext())
 	}
 	if !errors.Is(model.err, ErrUnsupportedScreen) {
 		t.Fatalf("invalid screen error = %v, want ErrUnsupportedScreen", model.err)
@@ -238,7 +240,7 @@ func TestRootContextErrorsClearAnalysisEvidence(t *testing.T) {
 	}
 
 	model = freshRoot(t)
-	model.browser.resourceType = "unsupported"
+	model.browser.SetResourceType("unsupported")
 	if _, err := model.browserScreenContext(); err == nil {
 		t.Error("unsupported browser resource did not return an error")
 	}

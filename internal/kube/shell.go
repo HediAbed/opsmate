@@ -252,17 +252,32 @@ func (s *shellSession) writeInput() {
 	defer close(s.inputDone)
 	defer s.closeInput()
 	for {
-		select {
-		case <-s.ctx.Done():
+		line, open := s.nextInput()
+		if !open {
 			return
-		case line := <-s.input:
-			if _, err := io.WriteString(s.stdin, line); err != nil {
-				s.recordInputFailure("write input", err)
-				s.Close()
-				return
-			}
+		}
+		if !s.writeInputLine(line) {
+			return
 		}
 	}
+}
+
+func (s *shellSession) nextInput() (string, bool) {
+	select {
+	case <-s.ctx.Done():
+		return "", false
+	case line := <-s.input:
+		return line, true
+	}
+}
+
+func (s *shellSession) writeInputLine(line string) bool {
+	if _, err := io.WriteString(s.stdin, line); err != nil {
+		s.recordInputFailure("write input", err)
+		s.Close()
+		return false
+	}
+	return true
 }
 
 func (s *shellSession) closeInput() {

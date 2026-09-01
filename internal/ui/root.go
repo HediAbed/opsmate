@@ -10,20 +10,28 @@ import (
 	"github.com/HediAbed/opsmate/internal/cluster"
 	"github.com/HediAbed/opsmate/internal/kube"
 	"github.com/HediAbed/opsmate/internal/session"
+	"github.com/HediAbed/opsmate/internal/ui/analysispanel"
+	"github.com/HediAbed/opsmate/internal/ui/component"
+	"github.com/HediAbed/opsmate/internal/ui/screen"
+	browserscreen "github.com/HediAbed/opsmate/internal/ui/screen/browser"
+	crdsscreen "github.com/HediAbed/opsmate/internal/ui/screen/crds"
+	dashboardscreen "github.com/HediAbed/opsmate/internal/ui/screen/dashboard"
+	helmscreen "github.com/HediAbed/opsmate/internal/ui/screen/helm"
+	logscreen "github.com/HediAbed/opsmate/internal/ui/screen/logs"
 	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 type sessionStateSaver func(session.SessionState) error
 
-type screenID uint8
+type screenID = screen.ID
 
 const (
-	ScreenDashboard screenID = iota
-	ScreenBrowser
-	ScreenLogs
-	ScreenAnalysis
-	ScreenHelm
-	ScreenCRDs
+	ScreenDashboard = screen.Dashboard
+	ScreenBrowser   = screen.Browser
+	ScreenLogs      = screen.Logs
+	ScreenAnalysis  = screen.Analysis
+	ScreenHelm      = screen.Helm
+	ScreenCRDs      = screen.CRDs
 )
 
 const (
@@ -54,18 +62,13 @@ var rootScreenTabs = []rootScreenTab{
 	{key: "6", name: "CRDs", id: ScreenCRDs},
 }
 
-type GoBackMsg struct{}
+type GoBackMsg = screen.GoBackMsg
 
-type ClearStatusMsg struct{}
+type ClearStatusMsg = screen.ClearStatusMsg
 
 type initializeRootMsg struct{}
 
-type DrillDownMsg struct {
-	Screen       screenID
-	ResourceType string
-	ResourceName string
-	ResourceNS   string
-}
+type DrillDownMsg = screen.DrillDownMsg
 
 type RootModel struct {
 	width      int
@@ -75,12 +78,12 @@ type RootModel struct {
 	runtime    RuntimeDependencies
 	operations clusterOperations
 
-	dashboard     DashboardModel
-	browser       BrowserModel
-	logs          LogsModel
-	helm          HelmModel
-	crds          CRDsModel
-	analysisPanel AnalysisPanelModel
+	dashboard     dashboardscreen.DashboardModel
+	browser       browserscreen.BrowserModel
+	logs          logscreen.LogsModel
+	helm          helmscreen.HelmModel
+	crds          crdsscreen.CRDsModel
+	analysisPanel analysispanel.AnalysisPanelModel
 
 	namespaces   []string
 	showNSPicker bool
@@ -109,8 +112,8 @@ type RootModel struct {
 	showSearch    bool
 	searchInput   textinput.Model
 	searchCursor  int
-	searchResults []searchResult
-	searchCorpus  []searchResult
+	searchResults []screen.SearchItem
+	searchCorpus  []screen.SearchItem
 
 	showPFModal     bool
 	pfCursor        int
@@ -124,76 +127,71 @@ type RootModel struct {
 	saveSessionState sessionStateSaver
 }
 
-type searchResult struct {
-	Kind      string
-	Name      string
-	Namespace string
-}
-
 func NewRootModel(namespace string, runtime RuntimeDependencies) (RootModel, error) {
 	if err := runtime.validate(); err != nil {
 		return RootModel{}, err
 	}
 	commands := newNativeClusterCommands(runtime.Context, runtime.ClusterResources, runtime.ClusterObserver)
-	operations := newNativeClusterOperations(
-		runtime.Context,
-		runtime.ClusterOperations,
-		runtime.ClusterOperations,
-		runtime.ClusterOperations,
-		runtime.ClusterOperations,
-	)
+	operations := newRootClusterOperations(runtime)
 	helm := newNativeHelmCommands(runtime.Context, runtime.HelmReleases)
-	clusterAnalysis := newNativeClusterAnalyzer(runtime.Context, runtime.ClusterSnapshots, runtime.Analysis)
+	analysisPanel := newRootAnalysisPanel(namespace, runtime)
 	namespaceSpinner := spinner.New()
 	namespaceSpinner.Spinner = spinner.Dot
 	namespaceSpinner.Style = theme.SpinnerStyle
-
-	analysisPanel := newAnalysisPanelWithService(runtime.Analysis)
-	analysisPanel.analyzeCluster = clusterAnalysis.Analyze
-	analysisPanel.SetNamespace(namespace)
-
-	commandInput := newTextInput(textInputOptions{
-		Prompt:      ":",
-		Placeholder: "pod, deploy, svc, ns <name>, logs <pod>, q",
-		CharLimit:   rootTextInputCharacterLimit,
-		Width:       rootTextInputInitialWidth,
-		PromptStyle: theme.Accent,
-		TextStyle:   lipgloss.NewStyle().Foreground(theme.White),
-	})
-
-	searchInput := newTextInput(textInputOptions{
-		Prompt:      "find: ",
-		Placeholder: "pod/deploy/svc name...",
-		CharLimit:   rootTextInputCharacterLimit,
-		Width:       rootTextInputInitialWidth,
-		PromptStyle: theme.Accent,
-		TextStyle:   lipgloss.NewStyle().Foreground(theme.White),
-	})
 
 	return RootModel{
 		screen:           ScreenDashboard,
 		namespace:        namespace,
 		runtime:          runtime,
 		operations:       operations,
-		dashboard:        newDashboardWithAnalysis(namespace, commands, runtime.Analysis),
-		browser:          newBrowserWithAnalysis(namespace, commands, operations, runtime.Analysis),
-		logs:             newLogsWithAnalysis(namespace, commands, operations, runtime.Analysis),
-		helm:             NewHelmModel(namespace, helm),
-		crds:             NewCRDsModel(namespace, commands),
+		dashboard:        dashboardscreen.NewWithAnalysis(namespace, commands, runtime.Analysis),
+		browser:          browserscreen.NewWithAnalysis(namespace, commands, operations, runtime.Analysis),
+		logs:             logscreen.NewWithAnalysis(namespace, commands, operations, runtime.Analysis),
+		helm:             helmscreen.NewHelmModel(namespace, helm),
+		crds:             crdsscreen.NewCRDsModel(namespace, commands),
 		analysisPanel:    analysisPanel,
 		nsSpinner:        namespaceSpinner,
-		cmdInput:         commandInput,
-		searchInput:      searchInput,
+		cmdInput:         newRootInput(":", "pod, deploy, svc, ns <name>, logs <pod>, q"),
+		searchInput:      newRootInput("find: ", "pod/deploy/svc name..."),
 		saveSessionState: session.SaveSession,
 	}, nil
+}
+
+func newRootClusterOperations(runtime RuntimeDependencies) clusterOperations {
+	return newNativeClusterOperations(
+		runtime.Context,
+		runtime.ClusterOperations,
+		runtime.ClusterOperations,
+		runtime.ClusterOperations,
+		runtime.ClusterOperations,
+	)
+}
+
+func newRootAnalysisPanel(namespace string, runtime RuntimeDependencies) analysispanel.AnalysisPanelModel {
+	panel := analysispanel.NewWithService(runtime.Analysis)
+	clusterAnalysis := newNativeClusterAnalyzer(runtime.Context, runtime.ClusterSnapshots, runtime.Analysis)
+	panel.SetClusterAnalyzer(clusterAnalysis.Analyze)
+	panel.SetNamespace(namespace)
+	return panel
+}
+
+func newRootInput(prompt, placeholder string) textinput.Model {
+	return component.NewTextInput(component.TextInputOptions{
+		Prompt:      prompt,
+		Placeholder: placeholder,
+		CharLimit:   rootTextInputCharacterLimit,
+		Width:       rootTextInputInitialWidth,
+		PromptStyle: theme.Accent,
+		TextStyle:   lipgloss.NewStyle().Foreground(theme.White),
+	})
 }
 
 func (m *RootModel) RestoreSession(s session.SessionState) {
 	if restoredScreen, ok := screenIDFromPersisted(s.Screen); ok {
 		m.screen = restoredScreen
 	}
-	if _, supported := resourceCatalog[s.ResourceType]; supported {
-		m.browser.resourceType = s.ResourceType
+	if resourceType := browserscreen.ResourceTypeForKind(s.ResourceType); resourceType != "" {
+		m.browser.SetResourceType(resourceType)
 	}
 	m.browser.SetWide(s.Wide)
 }

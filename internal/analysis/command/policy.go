@@ -252,16 +252,20 @@ func Scope(command, namespace string) (string, error) {
 		return "", err
 	}
 	if found {
-		if foundNamespace != namespace {
-			return "", commandScopeError(fmt.Sprintf(
-				"namespace %q does not match active namespace %q",
-				foundNamespace,
-				namespace,
-			))
-		}
-		return command, nil
+		return validateExplicitNamespace(command, namespace, foundNamespace)
 	}
 	return strings.TrimSpace(command) + " --namespace=" + quoteShellWord(namespace), nil
+}
+
+func validateExplicitNamespace(command, activeNamespace, commandNamespace string) (string, error) {
+	if commandNamespace != activeNamespace {
+		return "", commandScopeError(fmt.Sprintf(
+			"namespace %q does not match active namespace %q",
+			commandNamespace,
+			activeNamespace,
+		))
+	}
+	return command, nil
 }
 
 func explicitCommandNamespace(arguments []string) (namespace string, found bool, returnErr error) {
@@ -332,13 +336,20 @@ func quoteShellWord(value string) string {
 
 func checkFlags(arguments []string) error {
 	for _, argument := range arguments {
-		if strings.HasPrefix(argument, forbiddenServerShortFlag) && !strings.HasPrefix(argument, "--") {
-			return fmt.Errorf("%w: flag %q may redirect cluster target or auth", ErrForbiddenCommand, argument)
+		if err := checkFlag(argument); err != nil {
+			return err
 		}
-		for _, forbiddenFlag := range forbiddenFlags {
-			if argument == forbiddenFlag || strings.HasPrefix(argument, forbiddenFlag+"=") {
-				return fmt.Errorf("%w: flag %q may redirect cluster target or auth", ErrForbiddenCommand, argument)
-			}
+	}
+	return nil
+}
+
+func checkFlag(argument string) error {
+	if strings.HasPrefix(argument, forbiddenServerShortFlag) && !strings.HasPrefix(argument, "--") {
+		return fmt.Errorf("%w: flag %q may redirect cluster target or auth", ErrForbiddenCommand, argument)
+	}
+	for _, forbiddenFlag := range forbiddenFlags {
+		if argument == forbiddenFlag || strings.HasPrefix(argument, forbiddenFlag+"=") {
+			return fmt.Errorf("%w: flag %q may redirect cluster target or auth", ErrForbiddenCommand, argument)
 		}
 	}
 	return nil

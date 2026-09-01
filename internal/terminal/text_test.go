@@ -8,3 +8,9 @@ func TestNormalizeTerminalUTF8HandlesInvalidBytes(t *testing.T) {
 		t.Fatalf("normalizeTerminalUTF8() = %q, want replacement only for printable invalid byte", got)
 	}
 }
+
+func TestTruncateRunesHandlesNonPositiveLimit(t *testing.T) {
+	if got := TruncateRunes("value", 0, "suffix"); got != "suffix" {
+		t.Fatalf("TruncateRunes() = %q, want suffix", got)
+	}
+}

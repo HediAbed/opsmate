@@ -337,20 +337,22 @@ func TestRootUpdate_ContextsMsg_PicksCurrentMarker(t *testing.T) {
 	}
 }
 
-func TestRootUpdate_PortForwardStartedMsg_ReshresPFList(t *testing.T) {
-	m := freshRoot(t)
-	model, _ := m.Update(portForwardStartedMsg{Err: errStub("port in use")})
-	r := model.(RootModel)
-	if r.err == nil {
-		t.Error("err should propagate")
+func TestRootUpdate_PortForwardStartedMsg_PropagatesError(t *testing.T) {
+	model := freshRoot(t)
+	updated, _ := model.Update(portForwardStartedMsg{Err: errStub("port in use")})
+	if updated.(RootModel).err == nil {
+		t.Fatal("port-forward start error was not propagated")
 	}
 }
 
-func TestRootUpdate_PortForwardStoppedMsg_ResetsPFCursor(t *testing.T) {
-	m := freshRoot(t)
-	m.pfCursor = 99
-	model, _ := m.Update(portForwardStoppedMsg{SessionID: "x"})
-	_ = model
+func TestRootUpdate_PortForwardStoppedMsg_ResetsEmptyState(t *testing.T) {
+	model := freshRoot(t)
+	model.pfCursor = 99
+	updated, _ := model.Update(portForwardStoppedMsg{SessionID: "x"})
+	root := updated.(RootModel)
+	if root.pfCursor != 0 || len(root.pfSessions) != 0 {
+		t.Fatalf("stopped port-forward state = cursor:%d sessions:%v", root.pfCursor, root.pfSessions)
+	}
 }
 
 func TestRootUpdate_PortForwardFeedbackMsg_PropagatesErr(t *testing.T) {
@@ -390,44 +392,44 @@ func TestRootUpdate_ContextSwitchedMsg_ErrorPath(t *testing.T) {
 	}
 }
 
-func rootAmidContextSwitch(t *testing.T) (RootModel, *testResourceLiveSet[cluster.Pod]) {
+func rootAmidContextSwitch(t *testing.T) (RootModel, *testResourceObserver, int) {
 	t.Helper()
-	m := freshRoot(t)
-	m.dashboard.active = true
-	set := newTestResourceLiveSet(resourceLiveState[cluster.Pod]{Ready: true})
-	m.dashboard.podLive.Set(set)
-	m.contexts = []cluster.KubeContext{{Name: "secondary"}}
-	m.showCtxPicker = true
-	if command := m.selectContext(0); command == nil {
+	observer := &testResourceObserver{}
+	model := newTestRootModelWithObserver(t, "default", observer)
+	model.dashboard.Activate()
+	startedLiveSets := len(observer.calls)
+	if startedLiveSets == 0 {
+		t.Fatal("dashboard started no live observers")
+	}
+	model.contexts = []cluster.KubeContext{{Name: "secondary"}}
+	model.showCtxPicker = true
+	if command := model.selectContext(0); command == nil {
 		t.Fatal("selectContext() returned no command")
 	}
-	return m, set
+	return model, observer, startedLiveSets
 }
 
 func TestContextSwitchStopsLiveSetsBeforeConnecting(t *testing.T) {
-	m, set := rootAmidContextSwitch(t)
-	if !m.contextSwitching || m.dashboard.active || m.dashboard.podLive.Current() != nil {
-		t.Fatalf("context switch start = switching:%v dashboard active:%v live set:%v", m.contextSwitching, m.dashboard.active, m.dashboard.podLive.Current() != nil)
+	model, observer, startedLiveSets := rootAmidContextSwitch(t)
+	if !model.contextSwitching || model.dashboard.Active() {
+		t.Fatalf("context switch start = switching:%v dashboard active:%v", model.contextSwitching, model.dashboard.Active())
 	}
-	if set.stops.Load() != 1 {
-		t.Fatalf("live set stop count = %d, want one", set.stops.Load())
-	}
-	staleClosure := supervisedLiveMsg{generation: 1, closed: true}
-	updated, _ := m.Update(staleClosure)
-	m = updated.(RootModel)
-	if m.dashboard.err != nil {
-		t.Fatalf("stale closure surfaced during context switch: %v", m.dashboard.err)
+	if stopped := int(observer.stops.Load()); stopped != startedLiveSets {
+		t.Fatalf("context switch stopped %d of %d live sets", stopped, startedLiveSets)
 	}
 }
 
 func TestContextSwitchFailureRestartsDashboard(t *testing.T) {
-	m, _ := rootAmidContextSwitch(t)
-	updated, command := m.Update(cluster.ContextSwitchedMsg{Err: errStub("denied")})
-	m = updated.(RootModel)
-	if command == nil || m.contextSwitching || !m.dashboard.active || m.err == nil {
-		t.Fatalf("failed context switch recovery = command:%v switching:%v dashboard active:%v error:%v", command != nil, m.contextSwitching, m.dashboard.active, m.err)
+	model, observer, startedLiveSets := rootAmidContextSwitch(t)
+	updated, command := model.Update(cluster.ContextSwitchedMsg{Err: errStub("denied")})
+	model = updated.(RootModel)
+	if command == nil || model.contextSwitching || !model.dashboard.Active() || model.err == nil {
+		t.Fatalf("failed context switch recovery = command:%v switching:%v dashboard active:%v error:%v", command != nil, model.contextSwitching, model.dashboard.Active(), model.err)
 	}
-	m.dashboard.Deactivate()
+	if len(observer.calls) <= startedLiveSets {
+		t.Fatalf("failed context switch did not restart observers: calls=%v", observer.calls)
+	}
+	model.dashboard.Deactivate()
 }
 
 func TestContextSwitchBlocksNavigationButAllowsExit(t *testing.T) {
@@ -584,21 +586,8 @@ func TestRootHandleMouse_AnalysisVisibleAdjustsXForRightSideClick(t *testing.T) 
 	m.resizeChildren()
 	model, _ := m.handleMouse(tea.MouseClickMsg{X: m.width - 5, Y: 5, Button: tea.MouseLeft})
 	r := model.(RootModel)
-	if r.analysisPanel.input.Focused() {
+	if r.analysisPanel.InputFocused() {
 		t.Fatal("clicking the response area should blur the analysis input")
-	}
-}
-
-func TestRootHandleMouse_LeftClickOnContentForwardsToScreen(t *testing.T) {
-	m := freshRoot(t)
-	m.dashboard.SetSize(m.width, m.height-1)
-	m.dashboard.pods = []cluster.Pod{{Name: "first"}, {Name: "second"}}
-	m.dashboard.rebuildTableRows()
-	y := m.dashboard.podTableTopBoundary() + dashTableHeaderRows + 1
-	model, _ := m.handleMouse(tea.MouseClickMsg{X: 5, Y: y, Button: tea.MouseLeft})
-	r := model.(RootModel)
-	if got := r.dashboard.SelectedPod(); got != "second" {
-		t.Fatalf("content click selected pod %q, want second", got)
 	}
 }
 

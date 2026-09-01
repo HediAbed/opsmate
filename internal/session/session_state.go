@@ -195,15 +195,7 @@ func loadSessionAtPath(path string, openRoot sessionRootOpener) (_ SessionState,
 		}
 		return SessionState{}, &SessionError{Operation: OperationOpenDirectory, Path: directory, Err: err}
 	}
-	defer func() {
-		if closeErr := root.Close(); closeErr != nil {
-			returnErr = errors.Join(returnErr, &SessionError{
-				Operation: OperationCloseDirectory,
-				Path:      directory,
-				Err:       closeErr,
-			})
-		}
-	}()
+	defer joinSessionRootCloseError(&returnErr, root, directory)
 
 	file, err := openRegularSessionFile(root, sessionFileName)
 	if err != nil {
@@ -226,6 +218,16 @@ func loadSessionAtPath(path string, openRoot sessionRootOpener) (_ SessionState,
 		return SessionState{}, &SessionError{Operation: OperationDecode, Path: path, Err: err}
 	}
 	return state, nil
+}
+
+func joinSessionRootCloseError(returnErr *error, root sessionRoot, directory string) {
+	if closeErr := root.Close(); closeErr != nil {
+		*returnErr = errors.Join(*returnErr, &SessionError{
+			Operation: OperationCloseDirectory,
+			Path:      directory,
+			Err:       closeErr,
+		})
+	}
 }
 
 func openSessionRoot(directory string) (sessionRoot, error) {
@@ -326,15 +328,7 @@ func saveSessionAtPath(
 	if err != nil {
 		return &SessionError{Operation: OperationOpenDirectory, Path: directory, Err: err}
 	}
-	defer func() {
-		if closeErr := root.Close(); closeErr != nil {
-			returnErr = errors.Join(returnErr, &SessionError{
-				Operation: OperationCloseDirectory,
-				Path:      directory,
-				Err:       closeErr,
-			})
-		}
-	}()
+	defer joinSessionRootCloseError(&returnErr, root, directory)
 	if err := validateSessionDestination(root, sessionFileName); err != nil {
 		return &SessionError{Operation: OperationValidateDestination, Path: path, Err: err}
 	}
@@ -407,14 +401,7 @@ func writeSessionTemp(root sessionRoot, data []byte) (temporaryName string, retu
 	if err != nil {
 		return "", err
 	}
-	defer func() {
-		if returnErr != nil {
-			removeErr := root.Remove(temporaryName)
-			if removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
-				returnErr = errors.Join(returnErr, removeErr)
-			}
-		}
-	}()
+	defer cleanupFailedSessionTemp(&returnErr, root, temporaryName)
 	if _, err := file.Write(data); err != nil {
 		return temporaryName, errors.Join(err, file.Close())
 	}
@@ -425,6 +412,17 @@ func writeSessionTemp(root sessionRoot, data []byte) (temporaryName string, retu
 		return temporaryName, err
 	}
 	return temporaryName, nil
+}
+
+func cleanupFailedSessionTemp(returnErr *error, root sessionRoot, temporaryName string) {
+	if *returnErr == nil {
+		return
+	}
+	removeErr := root.Remove(temporaryName)
+	if removeErr == nil || errors.Is(removeErr, os.ErrNotExist) {
+		return
+	}
+	*returnErr = errors.Join(*returnErr, removeErr)
 }
 
 func replaceSessionFile(root sessionRoot, temporaryName, destinationName string) error {

@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/HediAbed/opsmate/internal/cluster"
 	"github.com/HediAbed/opsmate/internal/failure"
 	"github.com/HediAbed/opsmate/internal/kube"
+	browserscreen "github.com/HediAbed/opsmate/internal/ui/screen/browser"
 )
 
 var (
@@ -88,22 +88,22 @@ func (m RootModel) executePaletteCommand(input string) (tea.Model, tea.Cmd) {
 
 func paletteResourceType(command string) (string, bool) {
 	switch command {
-	case resourceKindPod, resourceTypePods:
-		return resourceTypePods, true
+	case "pod", "pods":
+		return browserscreen.ResourceTypeForKind("pod"), true
 	case "deploy", "dep":
-		return resourceTypeDeployments, true
+		return browserscreen.ResourceTypeForKind("deployment"), true
 	case "svc":
-		return resourceTypeServices, true
+		return browserscreen.ResourceTypeForKind("service"), true
 	case "sts":
-		return resourceTypeStatefulSets, true
+		return browserscreen.ResourceTypeForKind("statefulset"), true
 	case "ds":
-		return resourceTypeDaemonSets, true
+		return browserscreen.ResourceTypeForKind("daemonset"), true
 	case "cm":
-		return resourceTypeConfigMaps, true
-	case resourceKindNode, resourceTypeNodes:
-		return resourceTypeNodes, true
-	case resourceKindJob, resourceTypeJobs:
-		return resourceTypeJobs, true
+		return browserscreen.ResourceTypeForKind("configmap"), true
+	case "node", "nodes":
+		return browserscreen.ResourceTypeForKind("node"), true
+	case "job", "jobs":
+		return browserscreen.ResourceTypeForKind("job"), true
 	default:
 		return "", false
 	}
@@ -111,7 +111,6 @@ func paletteResourceType(command string) (string, bool) {
 
 func (m RootModel) openPaletteResource(resourceType string) (tea.Model, tea.Cmd) {
 	m.browser.SetResourceType(resourceType)
-	m.browser.loading = true
 	var command tea.Cmd
 	if m.screen == ScreenBrowser {
 		command = m.browser.Activate()
@@ -142,32 +141,28 @@ func (m RootModel) openPaletteLogs(args []string) (tea.Model, tea.Cmd) {
 
 func (m RootModel) startPortForwardFromPalette(args []string) (tea.Model, tea.Cmd) {
 	if len(args) < portForwardMinimumArgumentCount {
-		return m, func() tea.Msg {
-			return PortForwardFeedbackMsg{
-				Err: PortForwardInputError{Err: ErrPortForwardArgumentsRequired},
-			}
-		}
+		return m, portForwardFeedbackCommand(PortForwardInputError{Err: ErrPortForwardArgumentsRequired})
 	}
 	pod := args[0]
 	localPort, remotePort, err := parsePortSpec(args[1])
 	if err != nil {
-		return m, func() tea.Msg {
-			return PortForwardFeedbackMsg{Err: err}
-		}
+		return m, portForwardFeedbackCommand(err)
 	}
 	ns := m.namespace
 	if ns == "" {
-		return m, func() tea.Msg {
-			return PortForwardFeedbackMsg{
-				Err: PortForwardInputError{Err: ErrPortForwardNamespaceRequired},
-			}
-		}
+		return m, portForwardFeedbackCommand(PortForwardInputError{Err: ErrPortForwardNamespaceRequired})
 	}
 	return m, m.operations.StartPortForward(kube.PortForwardRequest{
 		Pod:        kube.PodReference{Namespace: ns, Name: pod},
 		LocalPort:  localPort,
 		RemotePort: remotePort,
 	})
+}
+
+func portForwardFeedbackCommand(err error) tea.Cmd {
+	return func() tea.Msg {
+		return PortForwardFeedbackMsg{Err: err}
+	}
 }
 
 func parsePortSpec(spec string) (kube.NetworkPort, kube.NetworkPort, error) {
@@ -232,15 +227,11 @@ func (m RootModel) drillDownCommand(msg DrillDownMsg) tea.Cmd {
 	}
 	switch msg.Screen {
 	case ScreenBrowser:
-		resource, err := groupResourceForKind(msg.ResourceType)
-		if err != nil {
-			return func() tea.Msg { return cluster.DescribeMsg{Err: err} }
-		}
-		return m.browser.operations.InspectResource(kube.ResourceReference{
-			Resource:  resource,
-			Namespace: defaultNamespace(msg.ResourceNS, m.namespace),
-			Name:      msg.ResourceName,
-		})
+		return m.browser.InspectResource(
+			msg.ResourceType,
+			msg.ResourceName,
+			defaultNamespace(msg.ResourceNS, m.namespace),
+		)
 	case ScreenLogs:
 		return m.logs.SetPodCmd()
 	case ScreenDashboard, ScreenAnalysis, ScreenHelm, ScreenCRDs:
@@ -264,13 +255,5 @@ func defaultNamespace(resourceNamespace, activeNamespace string) string {
 }
 
 func browserResourceType(kind string) string {
-	if _, ok := resourceCatalog[kind]; ok {
-		return kind
-	}
-	for resourceType, binding := range resourceCatalog {
-		if binding.Singular == kind {
-			return resourceType
-		}
-	}
-	return ""
+	return browserscreen.ResourceTypeForKind(kind)
 }
