@@ -172,6 +172,7 @@ func (m *BrowserModel) closeDetail() {
 	m.state = stateBrowsing
 	m.statusMsg = ""
 	m.analysisSummary = ""
+	m.analysisSummaryLoading = false
 	m.analysisSummaryErr = nil
 	m.detailKind = ""
 }

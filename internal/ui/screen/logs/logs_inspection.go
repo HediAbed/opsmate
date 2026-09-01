@@ -71,10 +71,12 @@ func (m LogsModel) handlePopupClick(column, row int) (LogsModel, tea.Cmd) {
 		return m, nil
 	}
 	rowInPopup := row - popupTop - logsPopupItemTopOffset
-	if rowInPopup < 0 || rowInPopup >= len(m.pods) {
+	visibleStart, visibleEnd := m.visiblePodRange(m.height)
+	podIndex := visibleStart + rowInPopup
+	if rowInPopup < 0 || podIndex >= visibleEnd {
 		return m, nil
 	}
-	m.podCursor = rowInPopup
+	m.podCursor = podIndex
 	m.selectPod(m.pods[m.podCursor])
 	m.showPodPopup = false
 	m.loading = true

@@ -110,29 +110,21 @@ func (m *BrowserModel) SetResourceType(resourceType string) {
 }
 
 func (m BrowserModel) SearchItems() []screen.SearchItem {
-	capacity := len(m.pods) + len(m.deployments) + len(m.services) + len(m.statefulsets) +
-		len(m.daemonsets) + len(m.configmaps) + len(m.jobs)
+	capacity := 0
+	for _, resourceType := range allResourceTypes {
+		capacity += resourceCatalog[resourceType].Count(&m)
+	}
 	items := make([]screen.SearchItem, 0, capacity)
-	for _, pod := range m.pods {
-		items = append(items, screen.SearchItem{Kind: screen.ResourceKindPod, Name: pod.Name, Namespace: pod.Namespace})
-	}
-	for _, deployment := range m.deployments {
-		items = append(items, screen.SearchItem{Kind: screen.ResourceKindDeployment, Name: deployment.Name, Namespace: deployment.Namespace})
-	}
-	for _, service := range m.services {
-		items = append(items, screen.SearchItem{Kind: screen.ResourceKindService, Name: service.Name, Namespace: service.Namespace})
-	}
-	for _, statefulSet := range m.statefulsets {
-		items = append(items, screen.SearchItem{Kind: screen.ResourceKindStatefulSet, Name: statefulSet.Name, Namespace: statefulSet.Namespace})
-	}
-	for _, daemonSet := range m.daemonsets {
-		items = append(items, screen.SearchItem{Kind: screen.ResourceKindDaemonSet, Name: daemonSet.Name, Namespace: daemonSet.Namespace})
-	}
-	for _, configMap := range m.configmaps {
-		items = append(items, screen.SearchItem{Kind: screen.ResourceKindConfigMap, Name: configMap.Name, Namespace: configMap.Namespace})
-	}
-	for _, job := range m.jobs {
-		items = append(items, screen.SearchItem{Kind: screen.ResourceKindJob, Name: job.Name, Namespace: job.Namespace})
+	for _, resourceType := range allResourceTypes {
+		binding := resourceCatalog[resourceType]
+		kind := screen.ResourceKind(binding.Singular)
+		for _, identity := range binding.IdentitiesOf(&m) {
+			items = append(items, screen.SearchItem{
+				Kind:      kind,
+				Name:      identity.Name,
+				Namespace: identity.Namespace,
+			})
+		}
 	}
 	return items
 }

@@ -288,3 +288,31 @@ func helmModelWithSelectedRelease() HelmModel {
 	model.releaseTable.SetCursor(0)
 	return model
 }
+
+func TestHelmValuesPopupStaysRenderableAtTinyTerminals(t *testing.T) {
+	for _, size := range []struct{ width, height int }{{1, 1}, {2, 2}, {3, 2}, {4, 3}} {
+		model := newTestHelmModel("edge")
+		model.SetSize(size.width, size.height)
+		if got := model.valuesPopupView.Width(); got < 0 {
+			t.Errorf("terminal %dx%d gave the values popup a negative width %d", size.width, size.height, got)
+		}
+		if got := model.valuesPopupView.Height(); got < 1 {
+			t.Errorf("terminal %dx%d gave the values popup a height of %d", size.width, size.height, got)
+		}
+		model.valuesPopupVisible = true
+		model.valuesPopupRelease = "gateway"
+		assertHelmViewRenders(t, model, size.width, size.height)
+	}
+}
+
+func assertHelmViewRenders(t *testing.T, model HelmModel, width, height int) {
+	t.Helper()
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			t.Errorf("terminal %dx%d panicked rendering the values popup: %v", width, height, recovered)
+		}
+	}()
+	if model.View() == "" {
+		t.Errorf("terminal %dx%d rendered an empty helm screen", width, height)
+	}
+}

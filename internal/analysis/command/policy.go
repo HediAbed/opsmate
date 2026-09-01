@@ -247,25 +247,21 @@ func Scope(command, namespace string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	foundNamespace, found, err := explicitCommandNamespace(arguments)
+	commandNamespace, found, err := explicitCommandNamespace(arguments)
 	if err != nil {
 		return "", err
 	}
-	if found {
-		return validateExplicitNamespace(command, namespace, foundNamespace)
-	}
-	return strings.TrimSpace(command) + " --namespace=" + quoteShellWord(namespace), nil
-}
-
-func validateExplicitNamespace(command, activeNamespace, commandNamespace string) (string, error) {
-	if commandNamespace != activeNamespace {
+	if found && commandNamespace != namespace {
 		return "", commandScopeError(fmt.Sprintf(
 			"namespace %q does not match active namespace %q",
 			commandNamespace,
-			activeNamespace,
+			namespace,
 		))
 	}
-	return command, nil
+	if !found {
+		arguments = append(arguments, "--namespace="+namespace)
+	}
+	return formatShellCommand(append([]string{"kubectl"}, arguments...)), nil
 }
 
 func explicitCommandNamespace(arguments []string) (namespace string, found bool, returnErr error) {
@@ -330,8 +326,40 @@ func commandScopeError(detail string) error {
 	return &Error{Detail: detail, Err: errors.Join(ErrForbiddenCommand, ErrCommandScope)}
 }
 
+func formatShellCommand(words []string) string {
+	formatted := make([]string, len(words))
+	for index, word := range words {
+		formatted[index] = quoteShellWord(word)
+	}
+	return strings.Join(formatted, " ")
+}
+
 func quoteShellWord(value string) string {
+	if isSafeShellWord(value) {
+		return value
+	}
 	return "'" + strings.ReplaceAll(value, "'", `'"'"'`) + "'"
+}
+
+func isSafeShellWord(value string) bool {
+	return value != "" && !strings.ContainsFunc(value, isUnsafeShellCharacter)
+}
+
+func isUnsafeShellCharacter(character rune) bool {
+	return !isSafeShellCharacter(character)
+}
+
+func isSafeShellCharacter(character rune) bool {
+	switch {
+	case character >= 'a' && character <= 'z':
+		return true
+	case character >= 'A' && character <= 'Z':
+		return true
+	case character >= '0' && character <= '9':
+		return true
+	default:
+		return strings.ContainsRune("_@%+=:,./-", character)
+	}
 }
 
 func checkFlags(arguments []string) error {

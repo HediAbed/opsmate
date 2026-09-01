@@ -191,12 +191,39 @@ func TestDashboardUpdate_MouseClickSelectsRow(_ *testing.T) {
 	_, _ = m.Update(tea.MouseClickMsg{X: 10, Y: 5, Button: tea.MouseLeft})
 }
 
-func TestDashboardUpdate_DashMetricsTickInactiveStillTicks(t *testing.T) {
+func TestDashboardUpdate_DashMetricsTickInactiveStopsChain(t *testing.T) {
 	m := newTestDashboardModel("ns")
 	m.SetSize(120, 30)
 	m.active = false
 	_, cmd := m.Update(dashMetricsTickMsg{})
-	if cmd == nil {
-		t.Error("tick should always re-arm itself")
+	if cmd != nil {
+		t.Error("an inactive dashboard must let the metrics timer chain expire instead of re-arming it")
 	}
+}
+
+func TestDashboardActivateAfterExpiredMetricsTickSchedulesOneChain(t *testing.T) {
+	m := NewDashboardModel("ns", &testCommands{observeErr: errStub("watch unavailable")})
+	m.SetSize(120, 30)
+	m.active = false
+	expired, cmd := m.Update(dashMetricsTickMsg{})
+	if cmd != nil {
+		t.Fatal("inactive tick must expire the metrics chain before activation is measured")
+	}
+
+	afterRestart := dashboardCommandCount(expired.Activate())
+	afterRepeat := dashboardCommandCount(expired.Activate())
+	if afterRestart != afterRepeat+1 {
+		t.Errorf("activation issued %d commands with an expired chain and %d with a live one; "+
+			"want exactly one extra command for the single restarted metrics tick", afterRestart, afterRepeat)
+	}
+}
+
+func dashboardCommandCount(command tea.Cmd) int {
+	if command == nil {
+		return 0
+	}
+	if batch, batched := command().(tea.BatchMsg); batched {
+		return len(batch)
+	}
+	return 1
 }

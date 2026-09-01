@@ -14,6 +14,8 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
+const defaultConnectionCheckTimeout = 30 * time.Second
+
 type ContextInfo struct {
 	Name      string
 	Cluster   string
@@ -88,20 +90,19 @@ func NewManager(configSource ConfigSource, clientBuilder ClientBuilder) (*Manage
 func (m *Manager) Connect(ctx context.Context, contextName string) error {
 	m.connectMu.Lock()
 	defer m.connectMu.Unlock()
-	if ctx == nil {
-		return newError(OperationConnect, SubjectClients, contextName, ErrContextRequired)
-	}
-	if err := ctx.Err(); err != nil {
+	if err := contextError(ctx); err != nil {
 		return newError(OperationConnect, SubjectClients, contextName, err)
 	}
 	candidate, err := m.prepareConnection(contextName)
 	if err != nil {
 		return err
 	}
-	if err := candidate.clients.CheckConnection(ctx); err != nil {
+	checkContext, cancelCheck := context.WithTimeout(ctx, defaultConnectionCheckTimeout)
+	defer cancelCheck()
+	if err := candidate.clients.CheckConnection(checkContext); err != nil {
 		return newError(OperationConnect, SubjectAPIServer, candidate.contextName, err)
 	}
-	if err := ctx.Err(); err != nil {
+	if err := checkContext.Err(); err != nil {
 		return newError(OperationConnect, SubjectAPIServer, candidate.contextName, err)
 	}
 	if candidate.previousContext != candidate.contextName {
@@ -196,7 +197,7 @@ func (m *Manager) clientSession(parent context.Context) (*Clients, context.Conte
 }
 
 func (m *Manager) CurrentContext(ctx context.Context) (string, error) {
-	if err := ctx.Err(); err != nil {
+	if err := contextError(ctx); err != nil {
 		return "", newError(OperationLoad, SubjectCurrentContext, "", err)
 	}
 	m.mu.RLock()
@@ -216,7 +217,7 @@ func (m *Manager) CurrentContext(ctx context.Context) (string, error) {
 }
 
 func (m *Manager) Contexts(ctx context.Context) ([]ContextInfo, error) {
-	if err := ctx.Err(); err != nil {
+	if err := contextError(ctx); err != nil {
 		return nil, newError(OperationList, SubjectContexts, "", err)
 	}
 	rawConfig, err := m.configSource.RawConfig()
@@ -249,6 +250,9 @@ func (m *Manager) Contexts(ctx context.Context) ([]ContextInfo, error) {
 }
 
 func (m *Manager) Namespaces(ctx context.Context) ([]string, error) {
+	if err := contextError(ctx); err != nil {
+		return nil, newError(OperationList, SubjectNamespaces, "", err)
+	}
 	clients, err := m.Clients()
 	if err != nil {
 		return nil, newError(OperationList, SubjectNamespaces, "", err)
@@ -263,4 +267,11 @@ func (m *Manager) Namespaces(ctx context.Context) ([]string, error) {
 	}
 	slices.Sort(namespaces)
 	return namespaces, nil
+}
+
+func contextError(ctx context.Context) error {
+	if ctx == nil {
+		return ErrContextRequired
+	}
+	return ctx.Err()
 }

@@ -17,6 +17,11 @@ import (
 	streamhttp "k8s.io/streaming/pkg/httpstream"
 )
 
+const (
+	portForwardAbandonBound = 3 * time.Second
+	lateReadinessTimeout    = 500 * time.Millisecond
+)
+
 type portForwardRunnerStub struct {
 	forward func() error
 }
@@ -179,6 +184,40 @@ func TestStartPortForwardHonorsReadinessTimeout(t *testing.T) {
 	}
 }
 
+func TestStartPortForwardTimeoutDeregistersUnresponsiveSession(t *testing.T) {
+	manager := streamingTestManager(t)
+	manager.forwardTimeout = time.Millisecond
+	release := make(chan struct{})
+	finished := make(chan struct{})
+	var stopSignal <-chan struct{}
+	manager.newPortForward = func(
+		_ *rest.Config,
+		_ *url.URL,
+		_ PortForwardRequest,
+		stop <-chan struct{},
+		_ chan struct{},
+		_ io.Writer,
+		_ io.Writer,
+	) (portForwardRunner, error) {
+		stopSignal = stop
+		return portForwardRunnerStub{forward: func() error {
+			defer close(finished)
+			<-release
+			return nil
+		}}, nil
+	}
+
+	handle, err := manager.StartPortForward(context.Background(), testPortForwardRequest(t, "team-a", "api-0", 18080, 8080))
+	if handle != nil || !errors.Is(err, ErrPortForwardReadiness) {
+		t.Fatalf("StartPortForward() timeout = (%v, %v)", handle, err)
+	}
+	requireClosedSignal(t, stopSignal, "port-forward stop request")
+	requireEmptyPortForwardRegistry(t, manager)
+
+	close(release)
+	requireClosedSignal(t, finished, "port-forward runner exit")
+}
+
 func TestStartPortForwardHonorsCallerCancellation(t *testing.T) {
 	request := testPortForwardRequest(t, "team-a", "api-0", 18080, 8080)
 	manager := streamingTestManager(t)
@@ -334,10 +373,7 @@ func TestAwaitPortForwardStartHandlesReadiness(t *testing.T) {
 		process := testPortForwardProcess("removed", time.Time{})
 		process.exitError = errors.New("ended")
 		close(process.ready)
-		result := awaitPortForwardStartAsync(context.Background(), context.Background(), manager, process)
-		requireAwaitStartStillBlocked(t, result)
-		close(process.done)
-		if err := <-result; !errors.Is(err, process.exitError) {
+		if err := manager.awaitPortForwardStart(context.Background(), context.Background(), process); !errors.Is(err, process.exitError) {
 			t.Fatalf("awaitPortForwardStart() error = %v", err)
 		}
 	})
@@ -359,10 +395,7 @@ func TestAwaitPortForwardStartHandlesProcessTermination(t *testing.T) {
 		process := testPortForwardProcess("internal", time.Time{})
 		session, cancel := context.WithCancel(context.Background())
 		cancel()
-		result := awaitPortForwardStartAsync(context.Background(), session, manager, process)
-		requireAwaitStartStillBlocked(t, result)
-		close(process.done)
-		if err := <-result; !errors.Is(err, ErrPortForwardReadiness) {
+		if err := manager.awaitPortForwardStart(context.Background(), session, process); !errors.Is(err, ErrPortForwardReadiness) {
 			t.Fatalf("awaitPortForwardStart() error = %v", err)
 		}
 	})
@@ -384,12 +417,107 @@ func awaitPortForwardStartAsync(parent, session context.Context, manager *Manage
 	return result
 }
 
-func requireAwaitStartStillBlocked(t *testing.T, result <-chan error) {
+func TestAwaitPortForwardStartAbandonsFailedStartups(t *testing.T) {
+	t.Run("readiness timeout", func(t *testing.T) {
+		manager := newTestManager(t)
+		manager.forwardTimeout = time.Millisecond
+		process := registerPortForwardProcess(manager, "timeout")
+		result := awaitPortForwardStartAsync(context.Background(), context.Background(), manager, process)
+		requireAbandonedPortForward(t, manager, process, result, ErrPortForwardReadiness)
+	})
+	t.Run("caller cancelled after readiness", func(t *testing.T) {
+		manager := newTestManager(t)
+		manager.forwardTimeout = lateReadinessTimeout
+		process := registerPortForwardProcess(manager, "caller-cancelled")
+		close(process.ready)
+		parent, cancel := context.WithCancel(context.Background())
+		cancel()
+		result := awaitPortForwardStartAsync(parent, context.Background(), manager, process)
+		requireAbandonedPortForward(t, manager, process, result, context.Canceled)
+	})
+	t.Run("session cancelled after readiness", func(t *testing.T) {
+		manager := newTestManager(t)
+		manager.forwardTimeout = lateReadinessTimeout
+		process := registerPortForwardProcess(manager, "session-cancelled")
+		close(process.ready)
+		process.contextCanceled.Store(true)
+		session, cancel := context.WithCancel(context.Background())
+		cancel()
+		result := awaitPortForwardStartAsync(context.Background(), session, manager, process)
+		requireAbandonedPortForward(t, manager, process, result, context.Canceled)
+	})
+	t.Run("session cancelled before readiness", func(t *testing.T) {
+		manager := newTestManager(t)
+		manager.forwardTimeout = lateReadinessTimeout
+		process := registerPortForwardProcess(manager, "session-closed")
+		session, cancel := context.WithCancel(context.Background())
+		cancel()
+		result := awaitPortForwardStartAsync(context.Background(), session, manager, process)
+		requireAbandonedPortForward(t, manager, process, result, ErrPortForwardReadiness)
+	})
+	t.Run("readiness after deregistration", func(t *testing.T) {
+		manager := newTestManager(t)
+		manager.forwardTimeout = lateReadinessTimeout
+		process := testPortForwardProcess("deregistered", time.Time{})
+		close(process.ready)
+		result := awaitPortForwardStartAsync(context.Background(), context.Background(), manager, process)
+		requireAbandonedPortForward(t, manager, process, result, ErrPortForwardReadiness)
+	})
+	t.Run("caller cancelled after exit", func(t *testing.T) {
+		manager := newTestManager(t)
+		manager.forwardTimeout = lateReadinessTimeout
+		process := registerPortForwardProcess(manager, "exited")
+		close(process.done)
+		parent, cancel := context.WithCancel(context.Background())
+		cancel()
+		result := awaitPortForwardStartAsync(parent, context.Background(), manager, process)
+		requireAbandonedPortForward(t, manager, process, result, context.Canceled)
+	})
+}
+
+func registerPortForwardProcess(manager *Manager, sessionID string) *portForwardProcess {
+	process := testPortForwardProcess(sessionID, time.Time{})
+	manager.portForwards.add(process)
+	return process
+}
+
+func requireAbandonedPortForward(t *testing.T, manager *Manager, process *portForwardProcess, result <-chan error, cause error) {
 	t.Helper()
 	select {
 	case err := <-result:
-		t.Fatalf("awaitPortForwardStart() returned before completion: %v", err)
-	case <-time.After(time.Millisecond):
+		if !errors.Is(err, cause) {
+			t.Fatalf("awaitPortForwardStart() error = %v, want %v", err, cause)
+		}
+	case <-time.After(portForwardAbandonBound):
+		t.Fatalf("awaitPortForwardStart() kept waiting for %s on a runner that never finishes", portForwardAbandonBound)
+	}
+	if !process.stopRequested.Load() {
+		t.Fatal("awaitPortForwardStart() left the runner without a stop request")
+	}
+	requireEmptyPortForwardRegistry(t, manager)
+}
+
+func requireEmptyPortForwardRegistry(t *testing.T, manager *Manager) {
+	t.Helper()
+	deadline := time.Now().Add(portForwardAbandonBound)
+	for {
+		active := manager.portForwards.active()
+		if len(active) == 0 {
+			return
+		}
+		if !time.Now().Before(deadline) {
+			t.Fatalf("port-forward registry still holds %d session(s) after a failed start", len(active))
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+func requireClosedSignal(t *testing.T, signal <-chan struct{}, description string) {
+	t.Helper()
+	select {
+	case <-signal:
+	case <-time.After(streamTestTimeout):
+		t.Fatalf("timed out waiting for %s", description)
 	}
 }
 

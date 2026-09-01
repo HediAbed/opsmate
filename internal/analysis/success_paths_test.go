@@ -53,7 +53,7 @@ func TestAnalysisGenerateCommand_SuccessReturnsCommandAndExplanation(t *testing.
 	if !strings.Contains(msg.Command, "kubectl get pods") {
 		t.Errorf("command = %q", msg.Command)
 	}
-	if !strings.Contains(msg.Command, "--namespace='default'") {
+	if !strings.Contains(msg.Command, "--namespace=default") {
 		t.Errorf("generated command is not confined to the active namespace: %q", msg.Command)
 	}
 }

@@ -1,6 +1,7 @@
 package browser
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -10,46 +11,40 @@ import (
 )
 
 func TestComputeColumns_FitsBoxAtEveryWidth(t *testing.T) {
-	widths := []int{40, 60, 80, 120, 160, 200, 240, 320}
-	kinds := []string{"pods", "deployments", "services", "statefulsets", "daemonsets", "configmaps", "nodes", "jobs"}
+	const minimumFillWidth = 120
+	widths := []int{40, 60, 80, minimumFillWidth, 160, 200, 240, 320}
 
-	for _, kind := range kinds {
-		specs, ok := resourceColSpecs[kind]
+	for _, resourceType := range allResourceTypes {
+		specs, ok := resourceColSpecs[resourceType]
 		if !ok {
-			t.Fatalf("missing colSpec for %q", kind)
+			t.Fatalf("missing column specification for %q", resourceType)
 		}
 		for _, tableWidth := range widths {
-			t.Run(kind+"_w"+itoa(tableWidth), func(t *testing.T) {
-				cols := computeColumns(tableWidth, specs)
-				sum := 0
-				for _, c := range cols {
-					sum += c.Width
-				}
-				padding := component.TableCellPadding * len(specs)
-				total := sum + padding
-				if total > tableWidth {
-					t.Errorf("OVERFLOW: %s w=%d → cols=%d + pad=%d = %d > %d (table must NEVER exceed box)",
-						kind, tableWidth, sum, padding, total, tableWidth)
-				}
-				if tableWidth >= 120 && total != tableWidth {
-					t.Errorf("UNDERFILL: %s w=%d → cols=%d + pad=%d = %d ≠ %d (table must fill box at typical widths)",
-						kind, tableWidth, sum, padding, total, tableWidth)
-				}
+			name := resourceType + "_w" + strconv.Itoa(tableWidth)
+			t.Run(name, func(t *testing.T) {
+				assertColumnsFit(t, resourceType, tableWidth, minimumFillWidth, specs)
 			})
 		}
 	}
 }
 
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
+func assertColumnsFit(t *testing.T, resourceType string, tableWidth, minimumFillWidth int, specs []component.ColumnSpec) {
+	t.Helper()
+	columns := computeColumns(tableWidth, specs)
+	columnWidth := 0
+	for _, column := range columns {
+		columnWidth += column.Width
 	}
-	digits := []byte{}
-	for n > 0 {
-		digits = append([]byte{byte('0' + n%10)}, digits...)
-		n /= 10
+	padding := component.TableCellPadding * len(specs)
+	totalWidth := columnWidth + padding
+	if totalWidth > tableWidth {
+		t.Errorf("columns overflow: resource=%s width=%d columns=%d padding=%d total=%d",
+			resourceType, tableWidth, columnWidth, padding, totalWidth)
 	}
-	return string(digits)
+	if tableWidth >= minimumFillWidth && totalWidth != tableWidth {
+		t.Errorf("columns underfill: resource=%s width=%d columns=%d padding=%d total=%d",
+			resourceType, tableWidth, columnWidth, padding, totalWidth)
+	}
 }
 
 func TestFormatEventsOutput_Empty(t *testing.T) {

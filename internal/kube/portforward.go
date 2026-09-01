@@ -145,33 +145,35 @@ func (m *Manager) preparePortForward(clients *Clients, cancel context.CancelFunc
 func (m *Manager) awaitPortForwardStart(parent, session context.Context, process *portForwardProcess) error {
 	timer := time.NewTimer(m.forwardTimeout)
 	defer timer.Stop()
+	var cause error
 	select {
 	case <-process.ready:
-		if err := portForwardCancellation(parent, session, process); err != nil {
-			process.requestStop()
-			return err
+		if cause = portForwardCancellation(parent, session, process); cause == nil {
+			if m.portForwards.markRunning(process.info.ID) {
+				return nil
+			}
+			cause = portForwardStartCause(process, ErrPortForwardReadiness)
 		}
-		if m.portForwards.markRunning(process.info.ID) {
-			return nil
-		}
-		<-process.done
-		return portForwardStartCause(process, ErrPortForwardReadiness)
 	case <-process.done:
-		if err := portForwardCancellation(parent, session, process); err != nil {
-			return err
+		cause = portForwardCancellation(parent, session, process)
+		if cause == nil {
+			cause = portForwardStartCause(process, ErrPortForwardReadiness)
 		}
-		return portForwardStartCause(process, ErrPortForwardReadiness)
 	case <-session.Done():
-		if err := portForwardCancellation(parent, session, process); err != nil {
-			process.requestStop()
-			return err
+		cause = portForwardCancellation(parent, session, process)
+		if cause == nil {
+			cause = portForwardStartCause(process, ErrPortForwardReadiness)
 		}
-		<-process.done
-		return portForwardStartCause(process, ErrPortForwardReadiness)
 	case <-timer.C:
-		process.requestStop()
-		return ErrPortForwardReadiness
+		cause = ErrPortForwardReadiness
 	}
+	return m.abandonPortForwardStart(process, cause)
+}
+
+func (m *Manager) abandonPortForwardStart(process *portForwardProcess, cause error) error {
+	process.requestStop()
+	m.portForwards.finish(process.info.ID)
+	return cause
 }
 
 func portForwardCancellation(parent, session context.Context, process *portForwardProcess) error {

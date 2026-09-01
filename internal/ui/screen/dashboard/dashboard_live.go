@@ -15,7 +15,12 @@ const dashboardLiveSetCount = 3
 func (m *DashboardModel) Activate() tea.Cmd {
 	defer m.syncDashboardLayout()
 	m.active = true
-	return m.refreshAll()
+	refresh := m.refreshAll()
+	if m.metricsTickPending {
+		return refresh
+	}
+	m.metricsTickPending = true
+	return tea.Batch(refresh, scheduleMetricsTick())
 }
 
 func (m *DashboardModel) Deactivate() {

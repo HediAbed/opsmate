@@ -14,7 +14,13 @@ import (
 	"github.com/HediAbed/opsmate/internal/failure"
 )
 
-const minimumQuotedValueLength = 2
+const (
+	minimumQuotedValueLength   = 2
+	dotEnvFilename             = ".env"
+	applicationConfigDir       = "opsmate"
+	explicitDotEnvPathEnv      = "OPSMATE_ENV_FILE"
+	dotEnvPublicPermissionMask = fs.FileMode(0o077)
+)
 
 var ErrInvalidDotEnvLine = errors.New("invalid dotenv line")
 
@@ -77,27 +83,63 @@ func (e *DotEnvError) FailureCode() failure.Code {
 }
 
 func LoadDotEnvFromExecutableDir() error {
-	executable, executableErr := os.Executable()
-	return loadDotEnvNearExecutable(executable, executableErr, os.Stat, LoadDotEnv)
+	if path, explicit := os.LookupEnv(explicitDotEnvPathEnv); explicit {
+		return LoadDotEnv(path)
+	}
+	if loaded, err := loadUserConfigDotEnv(); loaded || err != nil {
+		return err
+	}
+	return loadDotEnvNearExecutable(currentExecutable(), os.Stat, LoadDotEnv)
+}
+
+func loadUserConfigDotEnv() (bool, error) {
+	configDir := userConfigDir()
+	if configDir == "" {
+		return false, nil
+	}
+	return loadExistingDotEnv(filepath.Join(configDir, applicationConfigDir, dotEnvFilename))
+}
+
+func userConfigDir() string {
+	configDir, _ := os.UserConfigDir()
+	return configDir
+}
+
+func loadExistingDotEnv(path string) (bool, error) {
+	_, err := os.Stat(path)
+	switch {
+	case err == nil:
+		return true, LoadDotEnv(path)
+	case errors.Is(err, os.ErrNotExist):
+		return false, nil
+	default:
+		return true, &DotEnvError{Path: path, Stage: StageStat, Err: err}
+	}
+}
+
+func currentExecutable() string {
+	executable, _ := os.Executable()
+	return executable
 }
 
 func loadDotEnvNearExecutable(
 	executable string,
-	executableErr error,
 	stat func(string) (os.FileInfo, error),
 	load func(string) error,
 ) error {
-	if executableErr == nil {
-		candidate := filepath.Join(filepath.Dir(executable), ".env")
-		_, statErr := stat(candidate)
-		switch {
-		case statErr == nil:
-			return load(candidate)
-		case !errors.Is(statErr, os.ErrNotExist):
-			return &DotEnvError{Path: candidate, Stage: StageStat, Err: statErr}
-		}
+	if executable == "" {
+		return nil
 	}
-	return load(".env")
+	candidate := filepath.Join(filepath.Dir(executable), dotEnvFilename)
+	_, statErr := stat(candidate)
+	switch {
+	case statErr == nil:
+		return load(candidate)
+	case errors.Is(statErr, os.ErrNotExist):
+		return nil
+	default:
+		return &DotEnvError{Path: candidate, Stage: StageStat, Err: statErr}
+	}
 }
 
 func LoadDotEnv(path string) (returnErr error) {
@@ -109,7 +151,17 @@ func LoadDotEnv(path string) (returnErr error) {
 	if err != nil {
 		return &DotEnvError{Path: path, Stage: StageOpen, Err: err}
 	}
+	if err := validateDotEnvPermissions(path, file); err != nil {
+		return errors.Join(err, closeDotEnvFile(path, file))
+	}
 	return loadDotEnvReader(path, file)
+}
+
+func closeDotEnvFile(path string, file *os.File) error {
+	if err := file.Close(); err != nil {
+		return &DotEnvError{Path: path, Stage: StageClose, Err: err}
+	}
+	return nil
 }
 
 func loadDotEnvReader(path string, reader io.ReadCloser) (returnErr error) {
@@ -151,6 +203,9 @@ func loadDotEnvLineWithEnvironment(
 	if skip {
 		return nil
 	}
+	if !isAllowedDotEnvKey(key) {
+		return nil
+	}
 	if _, exists := lookup(key); exists {
 		return nil
 	}
@@ -158,6 +213,15 @@ func loadDotEnvLineWithEnvironment(
 		return &DotEnvError{Path: path, Line: lineNumber, Stage: StageSet, Err: err}
 	}
 	return nil
+}
+
+func isAllowedDotEnvKey(key string) bool {
+	switch key {
+	case "OPSMATE_PROVIDER_URL", "OPSMATE_PROVIDER_MODEL", "OPSMATE_PROVIDER_API_KEY":
+		return true
+	default:
+		return false
+	}
 }
 
 func parseDotEnvLine(raw string) (key string, value string, skip bool, err error) {

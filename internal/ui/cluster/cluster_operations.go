@@ -12,6 +12,7 @@ import (
 
 	model "github.com/HediAbed/opsmate/internal/cluster"
 	"github.com/HediAbed/opsmate/internal/kube"
+	"github.com/HediAbed/opsmate/internal/ui/component"
 )
 
 const (
@@ -233,10 +234,8 @@ func successfulMutation(action, identifier string) string {
 
 func batchMutationSummary(action, subject string, outcome kube.BatchOutcome) string {
 	count := len(outcome.Succeeded)
-	if count == 1 {
-		return fmt.Sprintf("%s 1 %s", action, subject)
-	}
-	return fmt.Sprintf("%s %d %ss", action, count, subject)
+	noun := component.NounForCount(subject, subject+"s", count)
+	return fmt.Sprintf("%s %d %s", action, count, noun)
 }
 
 var _ Operations = ResourceOperations{}

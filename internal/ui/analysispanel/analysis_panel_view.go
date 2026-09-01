@@ -190,7 +190,7 @@ func renderChatWelcome(width int) string {
 			"or use !command to generate kubectl commands.\n\n" +
 			"Examples:\n" +
 			"  \"Why is my pod crashing?\"\n" +
-			"  \"!scale deployment web to 3 replicas\"\n" +
+			"  \"!show recent warning events\"\n" +
 			"  \"Explain the events for this pod\"\n")
 }
 

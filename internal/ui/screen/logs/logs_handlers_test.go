@@ -1,6 +1,7 @@
 package logs
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -308,4 +309,55 @@ func TestLogsModel_RebuildInspectView_PreservesViewportWhenNoLines(t *testing.T)
 	if got := m.logView.View(); !strings.Contains(got, "existing content") {
 		t.Fatalf("empty inspect rebuild changed viewport: %q", got)
 	}
+}
+
+const (
+	podPopupScrollTerminalWidth  = 120
+	podPopupScrollTerminalHeight = 13
+	podPopupScrollPodCount       = 30
+	podPopupScrollSteps          = 9
+	podPopupScrollSecondRow      = 2
+)
+
+func TestLogsModel_HandlePopupMouse_ClickHonoursScrolledWindow(t *testing.T) {
+	m := newTestLogsModel("ns")
+	m.SetSize(podPopupScrollTerminalWidth, podPopupScrollTerminalHeight)
+	m.pods = seedPodPopupPods(podPopupScrollPodCount)
+	m.showPodPopup = true
+	for range podPopupScrollSteps {
+		m, _ = m.handlePopupMouse(tea.MouseWheelMsg{Button: tea.MouseWheelDown})
+	}
+
+	start, end := m.visiblePodRange(m.height)
+	if start == 0 {
+		t.Fatalf("precondition: the pod list must be scrolled; visible window = [%d,%d)", start, end)
+	}
+
+	for _, row := range []int{0, podPopupScrollSecondRow} {
+		out, _ := m.handlePopupMouse(podPopupClickAtRow(m, row))
+		want := m.pods[start+row].Name
+		if out.selectedPod != want {
+			t.Errorf("row %d of the scrolled popup selected %q, want %q", row, out.selectedPod, want)
+		}
+	}
+}
+
+func podPopupClickAtRow(m LogsModel, row int) tea.MouseClickMsg {
+	popupWidth := logsPopupWidth(podPopupDesiredWidth, m.width)
+	popupHeight := min(len(m.pods)+logsPopupItemChrome, m.height-logsPopupItemChrome)
+	popupLeft := (m.width - popupWidth) / centerDivisor
+	popupTop := (m.height - popupHeight) / centerDivisor
+	return tea.MouseClickMsg{
+		X:      popupLeft + 1,
+		Y:      popupTop + logsPopupItemTopOffset + row,
+		Button: tea.MouseLeft,
+	}
+}
+
+func seedPodPopupPods(count int) []cluster.Pod {
+	pods := make([]cluster.Pod, count)
+	for index := range pods {
+		pods[index] = cluster.Pod{Name: "pod-" + strconv.Itoa(index), Namespace: "ns", Status: "Running"}
+	}
+	return pods
 }

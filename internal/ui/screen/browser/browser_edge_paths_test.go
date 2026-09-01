@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/table"
 	tea "charm.land/bubbletea/v2"
 	"github.com/HediAbed/opsmate/internal/analysis"
@@ -381,5 +382,53 @@ func TestBrowserResultRoutingKeepsCommandErrorsTyped(t *testing.T) {
 func TestBrowserClearStatusDelayIsNonNegative(t *testing.T) {
 	if command := screen.ClearStatusAfter(time.Nanosecond); command == nil {
 		t.Fatal("positive clear delay returned nil command")
+	}
+}
+
+func TestBrowserSearchItemsCoverEveryPopulatedResourceKind(t *testing.T) {
+	model := newTestBrowserModel("team-a")
+	for _, resourceType := range allResourceTypes {
+		seedOneResource(&model, resourceType)
+	}
+
+	searchable := make(map[screen.ResourceKind]bool, len(allResourceTypes))
+	for _, item := range model.SearchItems() {
+		if !item.Valid() {
+			t.Errorf("search item %+v is not addressable by global search", item)
+		}
+		searchable[item.Kind] = true
+	}
+
+	for _, resourceType := range allResourceTypes {
+		binding := resourceCatalog[resourceType]
+		if binding.Count(&model) == 0 {
+			t.Fatalf("seed left %q empty, so its search coverage is untested", resourceType)
+		}
+		if !searchable[screen.ResourceKind(binding.Singular)] {
+			t.Errorf("global search omits populated resource kind %q", resourceType)
+		}
+	}
+}
+
+func TestBrowserClosingDetailStopsPendingAnalysis(t *testing.T) {
+	model := newTestBrowserModel("team-a")
+	model.SetSize(100, 24)
+	model.loading = false
+	model.pods = []cluster.Pod{{Name: "web", Namespace: "team-a"}}
+	model.rebuildTable()
+	model.detailKind = "describe"
+	model.detailContent = "details"
+	model.showDetail = true
+	model.state = stateDetail
+	if command := model.analyzeDetail(); command == nil || !model.analysisSummaryLoading {
+		t.Fatal("detail analysis did not start")
+	}
+
+	closed, _ := model.Update(tea.KeyPressMsg{Code: tea.KeyEsc, Text: "esc"})
+	if closed.analysisSummaryLoading {
+		t.Error("closing the detail pane must clear the pending analysis state")
+	}
+	if _, command := closed.Update(spinner.TickMsg{}); command != nil {
+		t.Error("closing the detail pane must stop the analysis spinner from re-arming")
 	}
 }

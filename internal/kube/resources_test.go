@@ -44,6 +44,22 @@ func clusterListProbe[T interface{}](list func(context.Context) ([]T, error), na
 	}
 }
 
+func namespacedNilContextProbe[T interface{}](list func(context.Context, string) ([]T, error)) func() error {
+	return func() error {
+		var missingContext context.Context
+		_, err := list(missingContext, testNamespace)
+		return err
+	}
+}
+
+func clusterNilContextProbe[T interface{}](list func(context.Context) ([]T, error)) func() error {
+	return func() error {
+		var missingContext context.Context
+		_, err := list(missingContext)
+		return err
+	}
+}
+
 func TestManagerListsTypedResources(t *testing.T) {
 	manager := populatedResourceManager(t)
 	calls := []resourceCall{
@@ -246,6 +262,51 @@ func TestListResourcesHonorCanceledContext(t *testing.T) {
 	resource := schema.GroupVersionResource{Group: "example.invalid", Version: "v1", Resource: "widgets"}
 	if items, err := manager.ListResourceMetadata(cancelled, resource, testNamespace); items != nil || !errors.Is(err, context.Canceled) {
 		t.Fatalf("ListResourceMetadata(cancelled) = (%v, %v)", items, err)
+	}
+}
+
+func TestResourceListsRejectNilContext(t *testing.T) {
+	manager := populatedResourceManager(t)
+	var missingContext context.Context
+	calls := []struct {
+		name string
+		call func() error
+	}{
+		{name: "pods", call: namespacedNilContextProbe(manager.ListPods)},
+		{name: "deployments", call: namespacedNilContextProbe(manager.ListDeployments)},
+		{name: "events", call: namespacedNilContextProbe(manager.ListEvents)},
+		{name: "services", call: namespacedNilContextProbe(manager.ListServices)},
+		{name: "stateful sets", call: namespacedNilContextProbe(manager.ListStatefulSets)},
+		{name: "daemon sets", call: namespacedNilContextProbe(manager.ListDaemonSets)},
+		{name: "config maps", call: namespacedNilContextProbe(manager.ListConfigMaps)},
+		{name: "nodes", call: clusterNilContextProbe(manager.ListNodes)},
+		{name: "jobs", call: namespacedNilContextProbe(manager.ListJobs)},
+		{name: "ingresses", call: namespacedNilContextProbe(manager.ListIngresses)},
+		{name: "network policies", call: namespacedNilContextProbe(manager.ListNetworkPolicies)},
+		{name: "persistent volume claims", call: namespacedNilContextProbe(manager.ListPVCs)},
+		{name: "cron jobs", call: namespacedNilContextProbe(manager.ListCronJobs)},
+		{name: "horizontal pod autoscalers", call: namespacedNilContextProbe(manager.ListHPAs)},
+		{name: "secrets", call: namespacedNilContextProbe(manager.ListSecrets)},
+		{name: "replica sets", call: namespacedNilContextProbe(manager.ListReplicaSets)},
+		{name: "custom resource definitions", call: clusterNilContextProbe(manager.ListCRDs)},
+		{name: "pod metrics", call: namespacedNilContextProbe(manager.ListPodMetrics)},
+		{name: "rbac", call: func() error {
+			_, err := manager.ListRBAC(missingContext, testNamespace)
+			return err
+		}},
+		{name: "resource metadata", call: func() error {
+			resource := schema.GroupVersionResource{Group: "example.invalid", Version: "v1", Resource: "widgets"}
+			_, err := manager.ListResourceMetadata(missingContext, resource, testNamespace)
+			return err
+		}},
+	}
+	for _, test := range calls {
+		t.Run(test.name, func(t *testing.T) {
+			err := errorWithoutPanic(t, "listing "+test.name+" without a context", test.call)
+			if !errors.Is(err, ErrContextRequired) {
+				t.Fatalf("listing %s without a context: error = %v, want context-required error", test.name, err)
+			}
+		})
 	}
 }
 

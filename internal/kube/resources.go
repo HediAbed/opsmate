@@ -238,7 +238,7 @@ func (m *Manager) ListPodMetrics(ctx context.Context, namespace string) ([]metri
 }
 
 func (m *Manager) ListResourceMetadata(ctx context.Context, resource schema.GroupVersionResource, namespace string) ([]ResourceMetadata, error) {
-	if err := ctx.Err(); err != nil {
+	if err := contextError(ctx); err != nil {
 		return nil, newError(OperationList, SubjectResourceMetadata, "", err)
 	}
 	if resource.Version == "" || resource.Resource == "" {
@@ -270,7 +270,7 @@ func projectResourceMetadata(items []metav1.PartialObjectMetadata) []ResourceMet
 }
 
 func (m *Manager) ListRBAC(ctx context.Context, namespace string) (RBACResources, error) {
-	if err := ctx.Err(); err != nil {
+	if err := contextError(ctx); err != nil {
 		return RBACResources{}, newError(OperationList, SubjectRBAC, "", err)
 	}
 	clients, err := m.Clients()
@@ -362,7 +362,7 @@ func collectRBAC[T interface{}](reads *sync.WaitGroup, subject Subject, list fun
 }
 
 func listResources[T interface{}](ctx context.Context, manager *Manager, subject Subject, load func(context.Context, *Clients) ([]T, error)) ([]T, error) {
-	if err := ctx.Err(); err != nil {
+	if err := contextError(ctx); err != nil {
 		return nil, newError(OperationList, subject, "", err)
 	}
 	clients, err := manager.Clients()

@@ -1,6 +1,7 @@
 package logs
 
 import (
+	"slices"
 	"time"
 
 	"charm.land/bubbles/v2/spinner"
@@ -394,6 +395,8 @@ func (m *LogsModel) applyContainers(msg cluster.ContainersMsg) tea.Cmd {
 		return screen.ClearStatusAfter(logRefreshInterval)
 	}
 	m.containers = msg.Containers
+	m.showContainerPopup = false
+	m.reconcileContainerSelection()
 	switch len(m.containers) {
 	case 0:
 		return nil
@@ -402,18 +405,24 @@ func (m *LogsModel) applyContainers(msg cluster.ContainersMsg) tea.Cmd {
 		return screen.ClearStatusAfter(logRefreshInterval)
 	default:
 		m.showContainerPopup = true
-		m.containerCursor = m.findContainerIndex(m.selectedContainer)
 		return nil
 	}
 }
 
-func (m LogsModel) findContainerIndex(container string) int {
-	for index, candidate := range m.containers {
-		if candidate == container {
-			return index
-		}
+func (m *LogsModel) reconcileContainerSelection() {
+	previous := m.selectedContainer
+	index := slices.Index(m.containers, previous)
+	if len(m.containers) == 1 {
+		m.selectedContainer = m.containers[0]
+		index = 0
+	} else if index < 0 {
+		m.selectedContainer = ""
+		index = 0
 	}
-	return 0
+	m.containerCursor = index
+	if m.selectedContainer != previous {
+		m.resetExplanation()
+	}
 }
 
 func (m *LogsModel) handleLogRefreshTick() tea.Cmd {

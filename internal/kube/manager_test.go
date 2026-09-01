@@ -5,6 +5,7 @@ import (
 	"errors"
 	"slices"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,6 +80,81 @@ func TestManagerConnectRequiresContext(t *testing.T) {
 	var missingContext context.Context
 	if err := manager.Connect(missingContext, "primary"); !errors.Is(err, ErrContextRequired) {
 		t.Fatalf("Connect(nil) error = %v, want context-required error", err)
+	}
+}
+
+const maximumConnectionCheckBudget = time.Minute
+
+func TestManagerConnectBoundsConnectionCheck(t *testing.T) {
+	t.Run("bounds callers without a deadline", func(t *testing.T) {
+		observed := connectWithObservedCheckContext(context.Background(), t)
+		deadline, bounded := observed.Deadline()
+		if !bounded {
+			t.Fatal("Connect() handed an unbounded context to the connection check")
+		}
+		if budget := time.Until(deadline); budget <= 0 || budget > maximumConnectionCheckBudget {
+			t.Fatalf("connection check budget = %s, want a positive budget of at most %s", budget, maximumConnectionCheckBudget)
+		}
+	})
+	t.Run("keeps an earlier caller deadline", func(t *testing.T) {
+		callerDeadline := time.Now().Add(750 * time.Millisecond)
+		ctx, cancel := context.WithDeadline(context.Background(), callerDeadline)
+		defer cancel()
+		observed := connectWithObservedCheckContext(ctx, t)
+		deadline, bounded := observed.Deadline()
+		if !bounded || !deadline.Equal(callerDeadline) {
+			t.Fatalf("connection check deadline = (%s, %t), want the caller deadline %s", deadline, bounded, callerDeadline)
+		}
+	})
+}
+
+func connectWithObservedCheckContext(ctx context.Context, t *testing.T) context.Context {
+	t.Helper()
+	var observed context.Context
+	clients := testClientsWithCheck(func(checkContext context.Context) error {
+		observed = checkContext
+		return nil
+	})
+	manager, err := NewManager(primaryContextSource(), &fakeClientBuilder{clients: clients})
+	if err != nil {
+		t.Fatalf("NewManager() error = %v", err)
+	}
+	if err := manager.Connect(ctx, "primary"); err != nil {
+		t.Fatalf("Connect() error = %v", err)
+	}
+	if observed == nil {
+		t.Fatal("Connect() did not run the connection check")
+	}
+	return observed
+}
+
+func TestManagerRejectsNilContext(t *testing.T) {
+	manager := connectedManagerForTest(t, kubernetesfake.NewSimpleClientset())
+	var missingContext context.Context
+	calls := []struct {
+		name string
+		call func() error
+	}{
+		{name: "CurrentContext", call: func() error {
+			_, err := manager.CurrentContext(missingContext)
+			return err
+		}},
+		{name: "Contexts", call: func() error {
+			_, err := manager.Contexts(missingContext)
+			return err
+		}},
+		{name: "Namespaces", call: func() error {
+			_, err := manager.Namespaces(missingContext)
+			return err
+		}},
+	}
+	for _, test := range calls {
+		t.Run(test.name, func(t *testing.T) {
+			err := errorWithoutPanic(t, test.name+" without a context", test.call)
+			if !errors.Is(err, ErrContextRequired) {
+				t.Fatalf("%s(nil) error = %v, want context-required error", test.name, err)
+			}
+		})
 	}
 }
 
@@ -246,10 +322,7 @@ func TestManagerContexts(t *testing.T) {
 }
 
 func TestManagerHonorsContextCancellation(t *testing.T) {
-	source := &fakeConfigSource{rawConfig: clientcmdapi.Config{
-		CurrentContext: "primary",
-		Contexts:       map[string]*clientcmdapi.Context{"primary": {}},
-	}, rest: &rest.Config{Host: "https://cluster.invalid"}}
+	source := primaryContextSource()
 	manager, err := NewManager(source, &fakeClientBuilder{clients: healthyTestClients()})
 	if err != nil {
 		t.Fatalf("NewManager() error = %v", err)
@@ -268,10 +341,7 @@ func TestManagerHonorsContextCancellation(t *testing.T) {
 }
 
 func TestManagerDoesNotPublishClientsAfterCancellation(t *testing.T) {
-	source := &fakeConfigSource{rawConfig: clientcmdapi.Config{
-		CurrentContext: "primary",
-		Contexts:       map[string]*clientcmdapi.Context{"primary": {}},
-	}, rest: &rest.Config{Host: "https://cluster.invalid"}}
+	source := primaryContextSource()
 	ctx, cancel := context.WithCancel(context.Background())
 	builder := &fakeClientBuilder{clients: healthyTestClients(), after: cancel}
 	manager, err := NewManager(source, builder)
@@ -287,10 +357,7 @@ func TestManagerDoesNotPublishClientsAfterCancellation(t *testing.T) {
 }
 
 func TestManagerChecksCancellationAfterConnectionCheck(t *testing.T) {
-	source := &fakeConfigSource{rawConfig: clientcmdapi.Config{
-		CurrentContext: "primary",
-		Contexts:       map[string]*clientcmdapi.Context{"primary": {}},
-	}, rest: &rest.Config{Host: "https://cluster.invalid"}}
+	source := primaryContextSource()
 	ctx, cancel := context.WithCancel(context.Background())
 	clients := testClientsWithCheck(func(context.Context) error {
 		cancel()
@@ -345,10 +412,7 @@ func TestManagerNamespaceFailures(t *testing.T) {
 
 func connectedManagerForTest(t *testing.T, client *kubernetesfake.Clientset) *Manager {
 	t.Helper()
-	source := &fakeConfigSource{rawConfig: clientcmdapi.Config{
-		CurrentContext: "primary",
-		Contexts:       map[string]*clientcmdapi.Context{"primary": {}},
-	}, rest: &rest.Config{Host: "https://cluster.invalid"}}
+	source := primaryContextSource()
 	clients := healthyTestClients()
 	clients.kubernetes = client
 	manager, err := NewManager(source, &fakeClientBuilder{clients: clients})
@@ -359,6 +423,13 @@ func connectedManagerForTest(t *testing.T, client *kubernetesfake.Clientset) *Ma
 		t.Fatalf("Connect() error = %v", err)
 	}
 	return manager
+}
+
+func primaryContextSource() *fakeConfigSource {
+	return &fakeConfigSource{rawConfig: clientcmdapi.Config{
+		CurrentContext: "primary",
+		Contexts:       map[string]*clientcmdapi.Context{"primary": {}},
+	}, rest: &rest.Config{Host: "https://cluster.invalid"}}
 }
 
 func healthyTestClients() *Clients {

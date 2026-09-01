@@ -208,6 +208,18 @@ func TestListHelmReleasesHonorsCanceledContext(t *testing.T) {
 	}
 }
 
+func TestListHelmReleasesRejectsNilContext(t *testing.T) {
+	manager := managerWithClientsForTest(t, &Clients{kubernetes: fake.NewSimpleClientset()})
+	var missingContext context.Context
+	listErr := errorWithoutPanic(t, "ListHelmReleases without a context", func() error {
+		_, err := manager.ListHelmReleases(missingContext, "")
+		return err
+	})
+	if !errors.Is(listErr, ErrContextRequired) {
+		t.Fatalf("ListHelmReleases(nil) error = %v, want context-required error", listErr)
+	}
+}
+
 func TestManagerHelmValuesFailuresAreContextual(t *testing.T) {
 	sentinel := errors.New("values failed")
 	invalidValues := testStoredHelmRelease("api", "team-a", 1, "1.0.0", chartcommon.Values{"bad": make(chan int)})

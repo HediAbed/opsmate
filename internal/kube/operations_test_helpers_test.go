@@ -28,3 +28,19 @@ func mapperForResource(kind schema.GroupVersionKind, resource, singular schema.G
 	mapper.AddSpecific(kind, resource, singular, scope)
 	return mapper
 }
+
+func errorWithoutPanic(t *testing.T, description string, call func() error) error {
+	t.Helper()
+	var (
+		err       error
+		recovered any
+	)
+	func() {
+		defer func() { recovered = recover() }()
+		err = call()
+	}()
+	if recovered != nil {
+		t.Fatalf("%s panicked: %v", description, recovered)
+	}
+	return err
+}

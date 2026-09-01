@@ -290,10 +290,8 @@ func (m *AnalysisPanelModel) handleGeneratedCommand(msg analysis.GeneratedComman
 	}
 	m.err = msg.Err
 	m.response = ""
-	m.renderedResponse = theme.Error.Render("Error: " + terminal.SanitizeText(msg.Err.Error()))
-	m.responseView.SetContent(m.renderedResponse)
-	m.responseView.GotoTop()
-	m.input.Focus()
+	m.setLatestResponseIfEmpty("Error: " + terminal.SanitizeText(msg.Err.Error()) + "\n\n" + retryHint)
+	m.finishResponseUpdate()
 	return textinput.Blink
 }
 

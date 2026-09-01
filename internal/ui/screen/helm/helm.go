@@ -70,6 +70,7 @@ const (
 	initialTableWidth          = 80
 	pairedSides                = 2
 	popupHardGutter            = 1
+	popupMinimumContentSize    = 1
 )
 
 var helmColSpecs = []component.ColumnSpec{
@@ -403,8 +404,11 @@ func (m *HelmModel) syncValuesPopupLayout() {
 
 	innerW := popupW - popupChromeW
 	innerH := popupH - popupChromeH
-	if innerH < 1 {
-		innerH = 1
+	if innerW < popupMinimumContentSize {
+		innerW = popupMinimumContentSize
+	}
+	if innerH < popupMinimumContentSize {
+		innerH = popupMinimumContentSize
 	}
 	m.valuesPopupView.SetWidth(innerW)
 	m.valuesPopupView.SetHeight(innerH)

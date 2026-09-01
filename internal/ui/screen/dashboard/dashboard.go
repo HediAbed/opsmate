@@ -118,7 +118,8 @@ type DashboardModel struct {
 	deploymentLiveError error
 	eventLiveError      error
 
-	active bool
+	active             bool
+	metricsTickPending bool
 
 	requestIDs [dashboardDataKindCount]uint64
 }
@@ -147,13 +148,14 @@ func newDashboardWithAnalysis(namespace string, commands clusterui.Commands, ana
 	podTable.SetStyles(dashTableStyles())
 
 	return DashboardModel{
-		namespace: namespace,
-		cluster:   commands,
-		analysis:  analysisService,
-		podTable:  podTable,
-		spinner:   loadingSpinner,
-		loading:   true,
-		bodyView:  viewport.New(),
+		namespace:          namespace,
+		cluster:            commands,
+		analysis:           analysisService,
+		podTable:           podTable,
+		spinner:            loadingSpinner,
+		loading:            true,
+		bodyView:           viewport.New(),
+		metricsTickPending: true,
 	}
 }
 
@@ -220,11 +222,15 @@ func (m DashboardModel) handleDashboardHealthResult(msg dashboardHealthResultMsg
 }
 
 func (m *DashboardModel) handleDashboardMetricsTick() tea.Cmd {
-	commands := []tea.Cmd{scheduleMetricsTick()}
-	if m.active {
-		commands = append(commands, m.fetchDashboardData(dashboardMetrics, m.cluster.FetchPodMetrics(m.namespace)))
+	m.metricsTickPending = false
+	if !m.active {
+		return nil
 	}
-	return tea.Batch(commands...)
+	m.metricsTickPending = true
+	return tea.Batch(
+		scheduleMetricsTick(),
+		m.fetchDashboardData(dashboardMetrics, m.cluster.FetchPodMetrics(m.namespace)),
+	)
 }
 
 func (m DashboardModel) updateDashboardDataMessage(msg tea.Msg) (DashboardModel, tea.Cmd, bool) {
@@ -307,7 +313,7 @@ func (m *DashboardModel) handleDashboardMouseClick(msg tea.MouseClickMsg) {
 	if msg.Button != tea.MouseLeft {
 		return
 	}
-	rowIndex := msg.Y - m.podTableTopBoundary() - dashTableHeaderRows
+	rowIndex := msg.Y + m.bodyView.YOffset() - m.podTableTopBoundary() - dashTableHeaderRows
 	if rowIndex >= 0 && rowIndex < len(m.podTable.Rows()) {
 		m.podTable.SetCursor(rowIndex)
 	}

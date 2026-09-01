@@ -65,6 +65,27 @@ func TestAnalysisPanelUpdate_GeneratedCommandMsg_ErrorPath(t *testing.T) {
 	}
 }
 
+func TestAnalysisPanelGeneratedCommandFailureStaysRetryable(t *testing.T) {
+	m := NewAnalysisPanelModel()
+	m.SetSize(80, 30)
+	m.loading = true
+	m.setLastQuery("scale my deployment")
+
+	out, _ := m.Update(analysis.GeneratedCommandMsg{Err: errStub("rate limited")})
+	if out.lastFailedEntry() == nil {
+		t.Fatalf("failed command wrote no retryable history: %+v", out.history)
+	}
+	if !strings.Contains(out.helpView(), "retry") {
+		t.Error("failed command must offer the retry hint")
+	}
+	if command := out.retryLastQuery(); command != nil {
+		t.Fatalf("retry returned command %v, want an input restore only", command)
+	}
+	if got := out.input.Value(); got != "scale my deployment" {
+		t.Errorf("retry restored %q, want the failed query", got)
+	}
+}
+
 func TestAnalysisPanelUpdate_SpinnerTick_LoadingProgresses(_ *testing.T) {
 	m := NewAnalysisPanelModel()
 	m.SetSize(80, 30)

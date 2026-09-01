@@ -1,6 +1,7 @@
 package logs
 
 import (
+	"slices"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -118,6 +119,63 @@ func TestLogsUpdate_ContainersMsg_Error(t *testing.T) {
 	out, _ := m.Update(cluster.ContainersMsg{Err: errStub("denied")})
 	if out.statusMsg == "" {
 		t.Error("err should produce a banner-style status")
+	}
+}
+
+func TestLogsUpdate_ContainersMsg_DropsRemovedSelection(t *testing.T) {
+	cases := []struct {
+		name       string
+		containers []string
+		want       string
+	}{
+		{name: "pod has no containers left", containers: nil, want: ""},
+		{name: "pod has a single replacement container", containers: []string{"main"}, want: "main"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			assertRemovedContainerSelection(t, testCase.containers, testCase.want)
+		})
+	}
+}
+
+func assertRemovedContainerSelection(t *testing.T, containers []string, want string) {
+	t.Helper()
+	m := newTestLogsModel("ns")
+	m.SetSize(120, 30)
+	m.selectedPod = "web"
+	m.selectedContainer = "removed"
+	out, _ := m.Update(cluster.ContainersMsg{Containers: containers})
+	if out.selectedContainer != want {
+		t.Errorf("selectedContainer = %q, want %q; logs would stream from a container that no longer exists",
+			out.selectedContainer, want)
+	}
+}
+
+func TestLogsUpdate_ContainersMsg_RemovedSelectionNeverSurvivesMultiContainerRefresh(t *testing.T) {
+	m := newTestLogsModel("ns")
+	m.SetSize(120, 30)
+	m.selectedPod = "web"
+	m.selectedContainer = "removed"
+	out, _ := m.Update(cluster.ContainersMsg{Containers: []string{"main", "sidecar"}})
+	if !out.showContainerPopup {
+		t.Fatal("a multi-container refresh should open the container picker")
+	}
+	if out.selectedContainer != "" && !slices.Contains(out.containers, out.selectedContainer) {
+		t.Errorf("selectedContainer = %q is absent from the refreshed list %v", out.selectedContainer, out.containers)
+	}
+}
+
+func TestLogsUpdate_ContainersMsg_KeepsSurvivingSelection(t *testing.T) {
+	m := newTestLogsModel("ns")
+	m.SetSize(120, 30)
+	m.selectedPod = "web"
+	m.selectedContainer = "sidecar"
+	out, _ := m.Update(cluster.ContainersMsg{Containers: []string{"main", "sidecar"}})
+	if out.selectedContainer != "sidecar" {
+		t.Errorf("selectedContainer = %q, want the still-present sidecar", out.selectedContainer)
+	}
+	if out.containerCursor != 1 {
+		t.Errorf("containerCursor = %d, want the row of the surviving container", out.containerCursor)
 	}
 }
 

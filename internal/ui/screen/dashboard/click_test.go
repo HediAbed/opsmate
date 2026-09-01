@@ -11,8 +11,13 @@ import (
 )
 
 const (
-	dashboardClickTestRowCount = 5
-	dashboardClickTargetRow    = 2
+	dashboardClickTestRowCount      = 5
+	dashboardClickTargetRow         = 2
+	dashboardScrolledClickTargetRow = 2
+	dashboardScrollDeploymentCount  = 6
+	dashboardScrollEventCount       = 4
+	dashboardScrollTerminalWidth    = 120
+	dashboardScrollTerminalHeight   = 20
 )
 
 func TestDashboardPodTableTopBoundary(t *testing.T) {
@@ -64,6 +69,29 @@ func TestDashboardNonLeftMouseClickIsIgnored(t *testing.T) {
 	}
 }
 
+func TestDashboardMouseClickTracksScrolledBodyOffset(t *testing.T) {
+	model := newTestDashboardModel("default")
+	seedDashboardScrollableBody(&model)
+	model.SetSize(dashboardScrollTerminalWidth, dashboardScrollTerminalHeight)
+	if !model.bodyOverflows() {
+		t.Fatalf("body must overflow to scroll: %d content lines in a %d line viewport",
+			model.bodyView.TotalLineCount(), model.bodyView.Height())
+	}
+
+	scrolled, _ := model.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown})
+	offset := scrolled.bodyView.YOffset()
+	if offset == 0 {
+		t.Fatal("mouse wheel did not scroll the dashboard body")
+	}
+
+	clickRow := renderedRowY(t, scrolled, "NAME") + dashTableHeaderRows + dashboardScrolledClickTargetRow
+	updated, _ := scrolled.Update(tea.MouseClickMsg{X: 10, Y: clickRow, Button: tea.MouseLeft})
+	if got := updated.podTable.Cursor(); got != dashboardScrolledClickTargetRow {
+		t.Errorf("selected row = %d, want %d; the click landed on the rendered table row while the body was scrolled %d lines",
+			got, dashboardScrolledClickTargetRow, offset)
+	}
+}
+
 func renderedRowY(t *testing.T, model DashboardModel, marker string) int {
 	t.Helper()
 	for row, line := range strings.Split(stripAnsiForTest(model.View()), "\n") {
@@ -83,4 +111,30 @@ func seedDashboardClickPods(model *DashboardModel) {
 	model.pods = pods
 	model.loading = false
 	model.rebuildTableRows()
+}
+
+func seedDashboardScrollableBody(model *DashboardModel) {
+	seedDashboardClickPods(model)
+	deployments := make([]cluster.Deployment, dashboardScrollDeploymentCount)
+	for index := range deployments {
+		deployments[index] = cluster.Deployment{
+			Name:      "deploy-" + strconv.Itoa(index),
+			Namespace: "default",
+			Ready:     "1/1",
+			Age:       "1h",
+		}
+	}
+	events := make([]cluster.Event, dashboardScrollEventCount)
+	for index := range events {
+		events[index] = cluster.Event{
+			Name:      "event-" + strconv.Itoa(index),
+			Namespace: "default",
+			Type:      "Normal",
+			Reason:    "Scheduled",
+			Message:   "assigned to a node",
+			Age:       "1m",
+		}
+	}
+	model.deployments = deployments
+	model.events = events
 }

@@ -40,9 +40,25 @@ archives:
       - README.md
       - VERSION
 
+sboms:
+  - id: archives
+    artifacts: archive
+    disable: false
+
 checksum:
   name_template: checksums.txt
   algorithm: sha256
+
+signs:
+  - id: checksum
+    cmd: cosign
+    signature: "${artifact}.sigstore.json"
+    args:
+      - sign-blob
+      - "--bundle=${signature}"
+      - "${artifact}"
+      - --yes
+    artifacts: checksum
 
 changelog:
   use: git

@@ -44,12 +44,9 @@ CPU and memory values require the Kubernetes Metrics API. The Helm view requires
 
 ## Optional analysis
 
-Copy the example configuration:
+Create `opsmate/.env` in your user config directory: `~/.config` on Linux, `~/Library/Application Support` on macOS, or `%APPDATA%` on Windows. Keep the file private (`0600` on Unix). You can also set `OPSMATE_ENV_FILE` to an exact file path.
 
-```sh
-cp .env.example .env
-chmod 600 .env
-```
+OpsMate checks that file, then `.env` beside the executable. It does not read `.env` from the current directory, and the file can only set the provider variables below.
 
 Set the endpoint URL and model:
 
@@ -65,7 +62,7 @@ For Ollama, set `OPSMATE_PROVIDER_URL` to `http://localhost:11434/v1/chat/comple
 
 ## Release
 
-The current version is stored in [`VERSION`](VERSION).
+The current version is stored in [`VERSION`](VERSION). Release archives include SHA-256 checksums, SPDX SBOMs, and a Sigstore bundle for the checksum file. Public repositories also receive GitHub build provenance attestations.
 
 ## License
 
