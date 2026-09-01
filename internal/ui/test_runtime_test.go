@@ -4,9 +4,8 @@ import (
 	"context"
 	"testing"
 
-	tea "charm.land/bubbletea/v2"
-
 	"github.com/HediAbed/opsmate/internal/kube"
+	"github.com/charmbracelet/x/ansi"
 )
 
 type testContextManager struct {
@@ -14,6 +13,12 @@ type testContextManager struct {
 	contexts       func(context.Context) ([]kube.ContextInfo, error)
 	currentContext func(context.Context) (string, error)
 	namespaces     func(context.Context) ([]string, error)
+}
+
+type errStub string
+
+func (err errStub) Error() string {
+	return string(err)
 }
 
 type testClusterOperations struct {
@@ -33,11 +38,6 @@ type testClusterOperations struct {
 	helmReleases       []kube.HelmRelease
 	helmValues         string
 	helmErr            error
-}
-
-type testHelmCommands struct {
-	listReleases func(string) tea.Cmd
-	getValues    func(kube.HelmReleaseReference) tea.Cmd
 }
 
 type testShellSession struct {
@@ -82,6 +82,17 @@ func (s *testShellSession) Close() {
 	s.closed = true
 }
 
+func newTestShellSession() *testShellSession {
+	return &testShellSession{
+		identity: kube.ShellIdentity{
+			ID:  "test-shell",
+			Pod: kube.PodReference{Namespace: "default", Name: "worker"},
+		},
+		output: make(chan kube.ShellOutput, 1),
+		exit:   make(chan kube.ShellExit, 1),
+	}
+}
+
 func (s *testPortForward) Session() kube.PortForwardSession {
 	return s.session
 }
@@ -121,22 +132,6 @@ func (o *testClusterOperations) HelmReleaseValues(context.Context, kube.HelmRele
 	return o.helmValues, o.helmErr
 }
 
-func (c *testHelmCommands) ListReleases(namespace string) tea.Cmd {
-	if c != nil && c.listReleases != nil {
-		return c.listReleases(namespace)
-	}
-	return func() tea.Msg { return helmReleasesMsg{} }
-}
-
-func (c *testHelmCommands) GetValues(reference kube.HelmReleaseReference) tea.Cmd {
-	if c != nil && c.getValues != nil {
-		return c.getValues(reference)
-	}
-	return func() tea.Msg {
-		return helmValuesMsg{Release: reference.Name, Namespace: reference.Namespace}
-	}
-}
-
 func (m *testContextManager) Connect(ctx context.Context, name string) error {
 	if m.connect == nil {
 		return nil
@@ -167,14 +162,26 @@ func (m *testContextManager) Namespaces(ctx context.Context) ([]string, error) {
 
 func newTestRootModel(t *testing.T, namespace string) RootModel {
 	t.Helper()
-	resources := &testResourceReader{}
+	return newTestRootModelWithObserver(t, namespace, &testResourceObserver{})
+}
+
+func newTestRootModelWithObserver(
+	t *testing.T,
+	namespace string,
+	observer *testResourceObserver,
+) RootModel {
+	t.Helper()
+	resources := &testResourceReader{
+		resourceName:      observer.resourceName,
+		resourceNamespace: observer.resourceNamespace,
+	}
 	operations := &testClusterOperations{}
 	root, err := NewRootModel(namespace, RuntimeDependencies{
 		Context:           context.Background(),
 		ClusterContext:    &testContextManager{},
 		ClusterResources:  resources,
 		ClusterSnapshots:  &snapshotCollectorStub{},
-		ClusterObserver:   &testResourceObserver{},
+		ClusterObserver:   observer,
 		ClusterOperations: operations,
 		HelmReleases:      operations,
 	})
@@ -184,38 +191,8 @@ func newTestRootModel(t *testing.T, namespace string) RootModel {
 	return root
 }
 
-func newTestBrowserModel(namespace string) BrowserModel {
-	return NewBrowserModel(namespace, newTestClusterCommands(), newTestClusterOperations())
-}
-
-func newTestBrowserWithClusterOperations(namespace string, operations *testClusterOperations) BrowserModel {
-	adapter := newNativeClusterOperations(context.Background(), operations, operations, operations, operations)
-	return NewBrowserModel(namespace, newTestClusterCommands(), adapter)
-}
-
-func newTestDashboardModel(namespace string) DashboardModel {
-	return NewDashboardModel(namespace, newTestClusterCommands())
-}
-
-func newTestLogsModel(namespace string) LogsModel {
-	return NewLogsModel(namespace, newTestClusterCommands(), newTestClusterOperations())
-}
-
-func newTestCRDsModel(namespace string) CRDsModel {
-	return NewCRDsModel(namespace, newTestClusterCommands())
-}
-
-func newTestHelmModel(namespace string) HelmModel {
-	return NewHelmModel(namespace, &testHelmCommands{})
-}
-
-func newTestClusterCommands() clusterCommands {
-	return newNativeClusterCommands(context.Background(), &testResourceReader{}, &testResourceObserver{})
-}
-
-func newTestClusterOperations() clusterOperations {
-	operations := &testClusterOperations{}
-	return newNativeClusterOperations(context.Background(), operations, operations, operations, operations)
+func stripAnsiForTest(value string) string {
+	return ansi.Strip(value)
 }
 
 func testModelPortForwardSession(t *testing.T, sessionID, pod string, localPort, remotePort int) kube.PortForwardSession {
@@ -240,6 +217,4 @@ func testModelPortForwardSession(t *testing.T, sessionID, pod string, localPort,
 func installTestRootOperations(root *RootModel, operations *testClusterOperations) {
 	adapter := newNativeClusterOperations(context.Background(), operations, operations, operations, operations)
 	root.operations = adapter
-	root.browser.operations = adapter
-	root.logs.operations = adapter
 }

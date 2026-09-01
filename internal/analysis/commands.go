@@ -34,23 +34,27 @@ func (s Service) Analyze(systemPrompt, userMessage string) tea.Cmd {
 
 func (s Service) GenerateCommand(request string, namespace string) tea.Cmd {
 	return func() tea.Msg {
-		if s.client == nil {
-			return GeneratedCommandMsg{Err: missingProviderError()}
-		}
-		userPrompt := "namespace: " + quoteUntrustedData(namespace) + "\nrequest: " + request
-		response, err := chatWithTimeout(s.client, commandTimeout, failure.OperationChat, commandSystemPrompt, userPrompt)
-		if err != nil {
-			return GeneratedCommandMsg{Err: err}
-		}
-		generatedCommand, explanation := parseCommandResponse(response)
-		generatedCommand, err = command.Scope(generatedCommand, namespace)
-		if err != nil {
-			return GeneratedCommandMsg{Err: &provider.Error{
-				Provider: s.client.Name(), Operation: failure.OperationValidate, Err: err,
-			}}
-		}
-		return GeneratedCommandMsg{Command: generatedCommand, Explanation: explanation}
+		return s.generateCommandResult(request, namespace)
 	}
+}
+
+func (s Service) generateCommandResult(request, namespace string) GeneratedCommandMsg {
+	if s.client == nil {
+		return GeneratedCommandMsg{Err: missingProviderError()}
+	}
+	userPrompt := "namespace: " + quoteUntrustedData(namespace) + "\nrequest: " + request
+	response, err := chatWithTimeout(s.client, commandTimeout, failure.OperationChat, commandSystemPrompt, userPrompt)
+	if err != nil {
+		return GeneratedCommandMsg{Err: err}
+	}
+	generatedCommand, explanation := parseCommandResponse(response)
+	generatedCommand, err = command.Scope(generatedCommand, namespace)
+	if err != nil {
+		return GeneratedCommandMsg{Err: &provider.Error{
+			Provider: s.client.Name(), Operation: failure.OperationValidate, Err: err,
+		}}
+	}
+	return GeneratedCommandMsg{Command: generatedCommand, Explanation: explanation}
 }
 
 func (s Service) ExplainLogLine(line string, surroundingContext string, podName string) tea.Cmd {

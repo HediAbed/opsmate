@@ -312,15 +312,21 @@ func BuildBrowserContext(input BrowserContextInput) (string, error) {
 		SelectedNamespace: boundedContextValue(selection.SelectedNamespace, maxScreenFieldRunes),
 	})
 	writeBrowserResources(document, input)
-	if selection.DetailContent != "" && selection.Resource != BrowserSecrets && !document.Full() {
-		writeScreenContextRecord(document, screenContextRow{
-			Kind: "detail",
-			Attributes: []screenContextAttribute{{
-				Name: "content", Value: boundedContextValue(selection.DetailContent, maxScreenDetailRunes),
-			}},
-		})
-	}
+	writeBrowserDetailContext(document, selection)
 	return document.String(), nil
+}
+
+func writeBrowserDetailContext(document *boundedContextWriter, selection BrowserContextSelection) {
+	if selection.DetailContent == "" || selection.Resource == BrowserSecrets || document.Full() {
+		return
+	}
+	content := screenContextAttribute{
+		Name: "content", Value: boundedContextValue(selection.DetailContent, maxScreenDetailRunes),
+	}
+	writeScreenContextRecord(document, screenContextRow{
+		Kind:       "detail",
+		Attributes: []screenContextAttribute{content},
+	})
 }
 
 func writeBrowserResources(document *boundedContextWriter, input BrowserContextInput) {

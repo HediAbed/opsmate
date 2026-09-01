@@ -353,23 +353,27 @@ func projectSnapshotServices(items []corev1.Service) []ServiceSnapshot {
 	items = limitSnapshotItems(items, maximumSnapshotItems)
 	services := make([]ServiceSnapshot, 0, len(items))
 	for _, item := range items {
-		ports := make([]ServicePortSnapshot, 0, len(item.Spec.Ports))
-		for _, port := range item.Spec.Ports {
-			ports = append(ports, ServicePortSnapshot{
-				Name:     port.Name,
-				Protocol: string(port.Protocol),
-				Port:     port.Port,
-			})
-		}
 		services = append(services, ServiceSnapshot{
 			Name:      item.Name,
 			Namespace: item.Namespace,
 			Type:      string(item.Spec.Type),
 			ClusterIP: item.Spec.ClusterIP,
-			Ports:     ports,
+			Ports:     projectSnapshotServicePorts(item.Spec.Ports),
 		})
 	}
 	return services
+}
+
+func projectSnapshotServicePorts(items []corev1.ServicePort) []ServicePortSnapshot {
+	ports := make([]ServicePortSnapshot, 0, len(items))
+	for _, item := range items {
+		ports = append(ports, ServicePortSnapshot{
+			Name:     item.Name,
+			Protocol: string(item.Protocol),
+			Port:     item.Port,
+		})
+	}
+	return ports
 }
 
 func projectSnapshotEvents(items []corev1.Event) []EventSnapshot {

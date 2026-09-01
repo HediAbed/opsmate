@@ -51,6 +51,11 @@ type application struct {
 	dependencies applicationDependencies
 }
 
+type interactiveFailure struct {
+	message string
+	err     error
+}
+
 type finalModelError struct {
 	modelType string
 }
@@ -89,31 +94,36 @@ func (a application) run(arguments []string) int {
 func (a application) runInteractive(namespaceOverride string) (exitCode int) {
 	runtimeContext, cancelRuntime := context.WithCancel(context.Background())
 	defer cancelRuntime()
-
-	if err := a.dependencies.loadEnvironment(); err != nil {
-		a.logFailure("load environment configuration", err)
+	cluster, root, startupFailure := a.prepareInteractive(runtimeContext, namespaceOverride)
+	if startupFailure != nil {
+		a.logFailure(startupFailure.message, startupFailure.err)
 		return exitFailure
+	}
+	defer func() {
+		exitCode = a.shutdownCluster(cluster, exitCode)
+	}()
+	return a.runInteractiveProgram(root)
+}
+
+func (a application) prepareInteractive(runtimeContext context.Context, namespaceOverride string) (kube.Cluster, ui.RootModel, *interactiveFailure) {
+	if err := a.dependencies.loadEnvironment(); err != nil {
+		return nil, ui.RootModel{}, &interactiveFailure{message: "load environment configuration", err: err}
 	}
 	analysisService, err := a.dependencies.configureAnalysis()
 	if err != nil {
-		a.logFailure("configure analysis", err)
-		return exitFailure
+		return nil, ui.RootModel{}, &interactiveFailure{message: "configure analysis", err: err}
 	}
 	cluster, err := a.dependencies.connectCluster(runtimeContext)
 	if err != nil {
-		a.logFailure("connect cluster", err)
-		return exitFailure
+		return nil, ui.RootModel{}, &interactiveFailure{message: "connect cluster", err: err}
 	}
 	snapshots, err := a.dependencies.newSnapshotCollector(cluster, cluster)
 	if err != nil {
-		a.logFailure("create cluster snapshot collector", err)
-		return exitFailure
+		return nil, ui.RootModel{}, &interactiveFailure{message: "create cluster snapshot collector", err: err}
 	}
-
 	savedSession, namespace, err := a.loadStartupState(namespaceOverride)
 	if err != nil {
-		a.logFailure("load session state", err)
-		return exitFailure
+		return nil, ui.RootModel{}, &interactiveFailure{message: "load session state", err: err}
 	}
 	root, err := a.dependencies.newRootModel(namespace, clusterRuntimeDependencies(
 		runtimeContext,
@@ -122,14 +132,13 @@ func (a application) runInteractive(namespaceOverride string) (exitCode int) {
 		analysisService,
 	))
 	if err != nil {
-		a.logFailure("create terminal model", err)
-		return exitFailure
+		return nil, ui.RootModel{}, &interactiveFailure{message: "create terminal model", err: err}
 	}
 	root.RestoreSession(savedSession)
+	return cluster, root, nil
+}
 
-	defer func() {
-		exitCode = a.shutdownCluster(cluster, exitCode)
-	}()
+func (a application) runInteractiveProgram(root ui.RootModel) int {
 	finalModel, err := a.dependencies.newProgram(root).Run()
 	if err != nil {
 		a.logFailure("terminal failed", err)

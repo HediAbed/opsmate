@@ -25,6 +25,7 @@ const (
 	nodeRoleLabelPrefix    = "node-role.kubernetes.io/"
 	ingressHTTPPorts       = "80"
 	ingressHTTPSPorts      = "80, 443"
+	decimalNumberBase      = 10
 	metadataOnlyLabel      = "<metadata only>"
 )
 
@@ -81,18 +82,26 @@ func projectedInitStatus(statuses []corev1.ContainerStatus) string {
 		if status.State.Waiting != nil && status.State.Waiting.Reason != "" {
 			return "Init:" + status.State.Waiting.Reason
 		}
-		if status.State.Terminated != nil && status.State.Terminated.ExitCode != 0 {
-			reason := status.State.Terminated.Reason
-			if reason == "" {
-				reason = fmt.Sprintf("ExitCode%d", status.State.Terminated.ExitCode)
-			}
-			return "Init:" + reason
+		if reason := projectedTerminatedInitStatus(status); reason != "" {
+			return reason
 		}
 		if status.State.Terminated == nil {
 			return fmt.Sprintf("Init:%d/%d", index, len(statuses))
 		}
 	}
 	return ""
+}
+
+func projectedTerminatedInitStatus(status corev1.ContainerStatus) string {
+	terminated := status.State.Terminated
+	if terminated == nil || terminated.ExitCode == 0 {
+		return ""
+	}
+	reason := terminated.Reason
+	if reason == "" {
+		reason = fmt.Sprintf("ExitCode%d", terminated.ExitCode)
+	}
+	return "Init:" + reason
 }
 
 func projectDeployments(items []appsv1.Deployment, now time.Time) []model.Deployment {
@@ -189,12 +198,12 @@ func podMetricUsage(item metricsv1beta1.PodMetrics) (string, string) {
 		totalCPU += container.Usage.Cpu().MilliValue()
 		totalMemory += container.Usage.Memory().Value()
 	}
-	return strconv.FormatInt(totalCPU, 10) + "m", formatBinaryBytes(totalMemory)
+	return strconv.FormatInt(totalCPU, decimalNumberBase) + "m", formatBinaryBytes(totalMemory)
 }
 
 func formatBinaryBytes(bytes int64) string {
 	const bytesPerMebibyte = 1024 * 1024
-	return strconv.FormatInt(bytes/bytesPerMebibyte, 10) + "Mi"
+	return strconv.FormatInt(bytes/bytesPerMebibyte, decimalNumberBase) + "Mi"
 }
 
 func projectServices(items []corev1.Service, now time.Time) []model.Service {

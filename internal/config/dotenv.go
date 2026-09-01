@@ -14,6 +14,8 @@ import (
 	"github.com/HediAbed/opsmate/internal/failure"
 )
 
+const minimumQuotedValueLength = 2
+
 var ErrInvalidDotEnvLine = errors.New("invalid dotenv line")
 
 type Stage string
@@ -179,7 +181,7 @@ func parseDotEnvLine(raw string) (key string, value string, skip bool, err error
 	if quote != '\'' && quote != '"' {
 		return key, value, false, nil
 	}
-	if len(value) < 2 || value[len(value)-1] != quote {
+	if len(value) < minimumQuotedValueLength || value[len(value)-1] != quote {
 		return "", "", false, fmt.Errorf("%w: unmatched quote", ErrInvalidDotEnvLine)
 	}
 	return key, value[1 : len(value)-1], false, nil

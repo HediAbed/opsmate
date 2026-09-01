@@ -180,12 +180,14 @@ func TestErrorClassifiesFailures(t *testing.T) {
 			}
 		})
 	}
+}
 
-	var nilError *Error
-	if got := nilError.FailureCode(); got != failure.CodeUnknown {
+func TestNilErrorClassifiesAsUnknown(t *testing.T) {
+	var providerError *Error
+	if got := providerError.FailureCode(); got != failure.CodeUnknown {
 		t.Fatalf("nil FailureCode() = %q, want %q", got, failure.CodeUnknown)
 	}
-	if got := failure.CodeOf(nilError); got != failure.CodeUnknown {
+	if got := failure.CodeOf(providerError); got != failure.CodeUnknown {
 		t.Fatalf("CodeOf(nil provider error) = %q, want %q", got, failure.CodeUnknown)
 	}
 }

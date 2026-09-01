@@ -333,17 +333,19 @@ func configureLiveSet[T interface{}](set *liveSet[T], transform cache.TransformF
 
 func (s *liveSet[T]) eventHandler() cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerDetailedFuncs{
-		AddFunc: func(_ interface{}, initial bool) {
-			if !initial {
-				s.recordChange()
-			}
-		},
+		AddFunc: s.recordAddedResource,
 		UpdateFunc: func(_, _ interface{}) {
 			s.recordChange()
 		},
 		DeleteFunc: func(interface{}) {
 			s.recordChange()
 		},
+	}
+}
+
+func (s *liveSet[T]) recordAddedResource(_ interface{}, initial bool) {
+	if !initial {
+		s.recordChange()
 	}
 }
 

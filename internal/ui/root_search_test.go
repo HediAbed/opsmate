@@ -1,16 +1,18 @@
 package ui
 
 import (
+	"slices"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/HediAbed/opsmate/internal/cluster"
+	screenmodel "github.com/HediAbed/opsmate/internal/ui/screen"
 )
 
 func TestRootHandleSearch_DownArrowAdvancesCursor(t *testing.T) {
 	m := freshRoot(t)
 	m.showSearch = true
-	m.searchResults = []searchResult{{Name: "a"}, {Name: "b"}}
+	m.searchResults = []screenmodel.SearchItem{{Name: "a"}, {Name: "b"}}
 	m.searchCursor = 0
 	model, _ := m.handleSearch("down", tea.KeyPressMsg{Code: tea.KeyDown, Text: "down"})
 	r := model.(RootModel)
@@ -22,7 +24,7 @@ func TestRootHandleSearch_DownArrowAdvancesCursor(t *testing.T) {
 func TestRootHandleSearch_UpArrowRetractsCursor(t *testing.T) {
 	m := freshRoot(t)
 	m.showSearch = true
-	m.searchResults = []searchResult{{Name: "a"}, {Name: "b"}}
+	m.searchResults = []screenmodel.SearchItem{{Name: "a"}, {Name: "b"}}
 	m.searchCursor = 1
 	model, _ := m.handleSearch("up", tea.KeyPressMsg{Code: tea.KeyUp, Text: "up"})
 	r := model.(RootModel)
@@ -34,7 +36,7 @@ func TestRootHandleSearch_UpArrowRetractsCursor(t *testing.T) {
 func TestRootHandleSearch_EnterDrillsDown(t *testing.T) {
 	m := freshRoot(t)
 	m.showSearch = true
-	m.searchResults = []searchResult{{Kind: "pod", Name: "alpha", Namespace: "ns"}}
+	m.searchResults = []screenmodel.SearchItem{{Kind: screenmodel.ResourceKindPod, Name: "alpha", Namespace: "ns"}}
 	m.searchCursor = 0
 	model, cmd := m.handleSearch("enter", tea.KeyPressMsg{Code: tea.KeyEnter, Text: "enter"})
 	r := model.(RootModel)
@@ -44,9 +46,14 @@ func TestRootHandleSearch_EnterDrillsDown(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("enter should return drill-down cmd")
 	}
-	msg := cmd()
-	if d, ok := msg.(DrillDownMsg); !ok || d.ResourceName != "alpha" {
-		t.Errorf("expected DrillDownMsg{Name: alpha}; got %+v", msg)
+	message := cmd()
+	drillDown, ok := message.(DrillDownMsg)
+	if !ok {
+		t.Fatalf("search command returned %T", message)
+	}
+	want := DrillDownMsg{Screen: ScreenBrowser, ResourceType: "pod", ResourceName: "alpha", ResourceNS: "ns"}
+	if drillDown != want {
+		t.Fatalf("search drill-down = %+v, want %+v", drillDown, want)
 	}
 }
 
@@ -68,9 +75,9 @@ func TestRootHandleSearch_TypingFiltersCorpus(t *testing.T) {
 	m := freshRoot(t)
 	m.showSearch = true
 	m.searchInput.Focus()
-	m.searchCorpus = []searchResult{
-		{Kind: "pod", Name: "alpha"},
-		{Kind: "pod", Name: "beta"},
+	m.searchCorpus = []screenmodel.SearchItem{
+		{Kind: screenmodel.ResourceKindPod, Name: "alpha"},
+		{Kind: screenmodel.ResourceKindPod, Name: "beta"},
 	}
 	m.searchResults = m.searchCorpus
 	model, _ := m.handleSearch("l", tea.KeyPressMsg{Code: 'l', Text: "l"})
@@ -84,44 +91,71 @@ func TestRootHandleSearch_TypingFiltersCorpus(t *testing.T) {
 }
 
 func TestRootCollectSearchCorpus_AggregatesAcrossSubmodels(t *testing.T) {
-	m := freshRoot(t)
-	m.dashboard.pods = []cluster.Pod{{Name: "dash-pod", Namespace: "ns1"}}
-	m.dashboard.deployments = []cluster.Deployment{{Name: "dash-dep", Namespace: "ns1"}}
-	m.browser.pods = []cluster.Pod{{Name: "br-pod", Namespace: "ns2"}}
-	m.browser.deployments = []cluster.Deployment{{Name: "br-dep", Namespace: "ns2"}}
-	m.browser.services = []cluster.Service{{Name: "br-svc", Namespace: "ns2"}}
-	m.browser.statefulsets = []cluster.StatefulSet{{Name: "br-sts", Namespace: "ns2"}}
-	m.browser.daemonsets = []cluster.DaemonSet{{Name: "br-ds", Namespace: "ns2"}}
-	m.browser.configmaps = []cluster.ConfigMap{{Name: "br-cm", Namespace: "ns2"}}
-	m.browser.jobs = []cluster.Job{{Name: "br-job", Namespace: "ns2"}}
-	m.logs.pods = []cluster.Pod{{Name: "logs-pod", Namespace: "ns3"}}
+	model := newTestRootModelWithObserver(t, "ns1", &testResourceObserver{
+		resourceName:      "dashboard-resource",
+		resourceNamespace: "ns1",
+	})
+	for _, message := range commandMessages(t, model.dashboard.Activate()) {
+		model.dashboard, _ = model.dashboard.Update(message)
+	}
+	t.Cleanup(func() { model.dashboard.Deactivate() })
+	seedRootBrowser(&model,
+		cluster.PodsMsg{Pods: []cluster.Pod{{Name: "br-pod", Namespace: "ns2"}}},
+		cluster.DeploymentsMsg{Deployments: []cluster.Deployment{{Name: "br-dep", Namespace: "ns2"}}},
+		cluster.ServicesMsg{Services: []cluster.Service{{Name: "br-svc", Namespace: "ns2"}}},
+		cluster.StatefulSetsMsg{StatefulSets: []cluster.StatefulSet{{Name: "br-sts", Namespace: "ns2"}}},
+		cluster.DaemonSetsMsg{DaemonSets: []cluster.DaemonSet{{Name: "br-ds", Namespace: "ns2"}}},
+		cluster.ConfigMapsMsg{ConfigMaps: []cluster.ConfigMap{{Name: "br-cm", Namespace: "ns2"}}},
+		cluster.JobsMsg{Jobs: []cluster.Job{{Name: "br-job", Namespace: "ns2"}}},
+	)
+	model.logs, _ = model.logs.Update(cluster.PodsMsg{Pods: []cluster.Pod{{Name: "logs-pod", Namespace: "ns3"}}})
 
-	const minimumCorpusSize = 9
-	got := m.collectSearchCorpus()
-	if len(got) < minimumCorpusSize {
-		t.Errorf("expected at least %d corpus entries; got %d (%+v)", minimumCorpusSize, len(got), got)
+	const expectedCorpusSize = 10
+	results := model.collectSearchCorpus()
+	if len(results) != expectedCorpusSize {
+		t.Fatalf("search corpus has %d entries, want %d: %+v", len(results), expectedCorpusSize, results)
+	}
+	if !slices.Contains(results, screenmodel.SearchItem{Kind: screenmodel.ResourceKindPod, Name: "dashboard-resource", Namespace: "ns1"}) {
+		t.Fatalf("search corpus omitted dashboard pod: %+v", results)
+	}
+	if !slices.Contains(results, screenmodel.SearchItem{Kind: screenmodel.ResourceKindDeployment, Name: "dashboard-resource", Namespace: "ns1"}) {
+		t.Fatalf("search corpus omitted dashboard deployment: %+v", results)
 	}
 }
 
 func TestRootCollectSearchCorpus_DedupesIdenticalEntries(t *testing.T) {
-	m := freshRoot(t)
-	m.dashboard.pods = []cluster.Pod{{Name: "shared", Namespace: "ns"}}
-	m.browser.pods = []cluster.Pod{{Name: "shared", Namespace: "ns"}}
+	m := newTestRootModelWithObserver(t, "ns", &testResourceObserver{
+		resourceName:      "shared",
+		resourceNamespace: "ns",
+	})
+	for _, message := range commandMessages(t, m.dashboard.Activate()) {
+		m.dashboard, _ = m.dashboard.Update(message)
+	}
+	t.Cleanup(func() { m.dashboard.Deactivate() })
+	shared := cluster.Pod{Name: "shared", Namespace: "ns"}
+	seedRootBrowser(&m, cluster.PodsMsg{Pods: []cluster.Pod{shared}})
+	m.logs, _ = m.logs.Update(cluster.PodsMsg{Pods: []cluster.Pod{shared}})
 	got := m.collectSearchCorpus()
 	count := 0
-	for _, r := range got {
-		if r.Name == "shared" {
+	for _, result := range got {
+		if result.Kind == screenmodel.ResourceKindPod && result.Name == shared.Name && result.Namespace == shared.Namespace {
 			count++
 		}
 	}
 	if count != 1 {
-		t.Errorf("duplicate pod entries should be deduped; got %d", count)
+		t.Errorf("dashboard, browser, and logs pod entries were not deduplicated: count=%d corpus=%+v", count, got)
+	}
+}
+
+func seedRootBrowser(model *RootModel, messages ...tea.Msg) {
+	for _, message := range messages {
+		model.browser, _ = model.browser.Update(message)
 	}
 }
 
 func TestRootFilterSearchResults_EmptyQueryReturnsCorpus(t *testing.T) {
 	m := freshRoot(t)
-	m.searchCorpus = []searchResult{{Name: "a"}, {Name: "b"}}
+	m.searchCorpus = []screenmodel.SearchItem{{Name: "a"}, {Name: "b"}}
 	got := m.filterSearchResults("")
 	if len(got) != 2 {
 		t.Errorf("empty query should return full corpus; got %d", len(got))
@@ -130,7 +164,7 @@ func TestRootFilterSearchResults_EmptyQueryReturnsCorpus(t *testing.T) {
 
 func TestRootFilterSearchResults_QueryFilters(t *testing.T) {
 	m := freshRoot(t)
-	m.searchCorpus = []searchResult{
+	m.searchCorpus = []screenmodel.SearchItem{
 		{Name: "alpha"},
 		{Name: "beta"},
 		{Name: "gamma-alpha"},
@@ -138,5 +172,18 @@ func TestRootFilterSearchResults_QueryFilters(t *testing.T) {
 	got := m.filterSearchResults("alpha")
 	if len(got) != 2 {
 		t.Errorf("query 'alpha' should match 2 entries; got %d", len(got))
+	}
+}
+
+func TestUniqueSearchResultsRejectsInvalidEntries(t *testing.T) {
+	valid := screenmodel.SearchItem{Kind: screenmodel.ResourceKindPod, Name: "api", Namespace: "payments"}
+	results := uniqueSearchResults([]screenmodel.SearchItem{
+		valid,
+		valid,
+		{Kind: screenmodel.ResourceKind("pods"), Name: "plural-kind", Namespace: "payments"},
+		{Kind: screenmodel.ResourceKindPod, Namespace: "payments"},
+	})
+	if !slices.Equal(results, []screenmodel.SearchItem{valid}) {
+		t.Fatalf("validated search results = %+v, want only %+v", results, valid)
 	}
 }

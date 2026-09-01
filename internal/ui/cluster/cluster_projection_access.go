@@ -81,35 +81,42 @@ func projectedRBACRow(kind string, object metav1.Object, count int, scope string
 }
 
 func projectCRDs(items []apiextensionsv1.CustomResourceDefinition, now time.Time) []model.CRD {
-	return projectSlice(items, now, func(item apiextensionsv1.CustomResourceDefinition, now time.Time) model.CRD {
-		versions := make([]string, 0, len(item.Spec.Versions))
-		preferredVersion := ""
-		for _, version := range item.Spec.Versions {
-			if version.Served {
-				versions = append(versions, version.Name)
-			}
-			if version.Storage {
-				preferredVersion = version.Name
-			}
+	return projectSlice(items, now, projectCRD)
+}
+
+func projectCRD(item apiextensionsv1.CustomResourceDefinition, now time.Time) model.CRD {
+	versions, preferredVersion := projectCRDVersions(item.Spec.Versions)
+	resourceName := ""
+	if item.Spec.Names.Plural != "" && item.Spec.Group != "" {
+		resourceName = item.Spec.Names.Plural + "." + item.Spec.Group
+	}
+	return model.CRD{
+		Name:             item.Name,
+		Group:            item.Spec.Group,
+		Plural:           item.Spec.Names.Plural,
+		Singular:         item.Spec.Names.Singular,
+		Kind:             item.Spec.Names.Kind,
+		Scope:            string(item.Spec.Scope),
+		Versions:         versions,
+		PreferredVersion: preferredVersion,
+		Resource:         resourceName,
+		Age:              projectedAge(now, item.CreationTimestamp.Time),
+	}
+}
+
+func projectCRDVersions(definitions []apiextensionsv1.CustomResourceDefinitionVersion) ([]string, string) {
+	versions := make([]string, 0, len(definitions))
+	preferredVersion := ""
+	for _, definition := range definitions {
+		if definition.Served {
+			versions = append(versions, definition.Name)
 		}
-		if preferredVersion == "" && len(versions) > 0 {
-			preferredVersion = versions[0]
+		if definition.Storage {
+			preferredVersion = definition.Name
 		}
-		resourceName := ""
-		if item.Spec.Names.Plural != "" && item.Spec.Group != "" {
-			resourceName = item.Spec.Names.Plural + "." + item.Spec.Group
-		}
-		return model.CRD{
-			Name:             item.Name,
-			Group:            item.Spec.Group,
-			Plural:           item.Spec.Names.Plural,
-			Singular:         item.Spec.Names.Singular,
-			Kind:             item.Spec.Names.Kind,
-			Scope:            string(item.Spec.Scope),
-			Versions:         versions,
-			PreferredVersion: preferredVersion,
-			Resource:         resourceName,
-			Age:              projectedAge(now, item.CreationTimestamp.Time),
-		}
-	})
+	}
+	if preferredVersion == "" && len(versions) > 0 {
+		preferredVersion = versions[0]
+	}
+	return versions, preferredVersion
 }

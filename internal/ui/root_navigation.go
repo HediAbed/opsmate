@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/HediAbed/opsmate/internal/ui/component"
+	screenmodel "github.com/HediAbed/opsmate/internal/ui/screen"
 	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
@@ -159,14 +160,7 @@ func (m RootModel) handleSearch(key string, msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		chosen := m.searchResults[m.searchCursor]
 		m.showSearch = false
 		m.searchInput.Blur()
-		return m, func() tea.Msg {
-			return DrillDownMsg{
-				Screen:       ScreenBrowser,
-				ResourceType: chosen.Kind,
-				ResourceName: chosen.Name,
-				ResourceNS:   chosen.Namespace,
-			}
-		}
+		return m, searchDrillDownCommand(chosen)
 	default:
 		var cmd tea.Cmd
 		m.searchInput, cmd = m.searchInput.Update(msg)
@@ -178,64 +172,28 @@ func (m RootModel) handleSearch(key string, msg tea.KeyMsg) (tea.Model, tea.Cmd)
 	}
 }
 
-func (m RootModel) collectSearchCorpus() []searchResult {
-	candidates := append(m.dashboardSearchResults(), m.browserSearchResults()...)
-	candidates = append(candidates, m.logSearchResults()...)
+func searchDrillDownCommand(result screenmodel.SearchItem) tea.Cmd {
+	return func() tea.Msg {
+		return DrillDownMsg{
+			Screen:       ScreenBrowser,
+			ResourceType: string(result.Kind),
+			ResourceName: result.Name,
+			ResourceNS:   result.Namespace,
+		}
+	}
+}
+
+func (m RootModel) collectSearchCorpus() []screenmodel.SearchItem {
+	candidates := append(m.dashboard.SearchItems(), m.browser.SearchItems()...)
+	candidates = append(candidates, m.logs.SearchItems()...)
 	return uniqueSearchResults(candidates)
 }
 
-func (m RootModel) dashboardSearchResults() []searchResult {
-	results := make([]searchResult, 0, len(m.dashboard.pods)+len(m.dashboard.deployments))
-	for _, pod := range m.dashboard.pods {
-		results = append(results, searchResult{Kind: resourceKindPod, Name: pod.Name, Namespace: pod.Namespace})
-	}
-	for _, deployment := range m.dashboard.deployments {
-		results = append(results, searchResult{Kind: resourceKindDeployment, Name: deployment.Name, Namespace: deployment.Namespace})
-	}
-	return results
-}
-
-func (m RootModel) browserSearchResults() []searchResult {
-	capacity := len(m.browser.pods) + len(m.browser.deployments) + len(m.browser.services) +
-		len(m.browser.statefulsets) + len(m.browser.daemonsets) + len(m.browser.configmaps) + len(m.browser.jobs)
-	results := make([]searchResult, 0, capacity)
-	for _, pod := range m.browser.pods {
-		results = append(results, searchResult{Kind: resourceKindPod, Name: pod.Name, Namespace: pod.Namespace})
-	}
-	for _, deployment := range m.browser.deployments {
-		results = append(results, searchResult{Kind: resourceKindDeployment, Name: deployment.Name, Namespace: deployment.Namespace})
-	}
-	for _, svc := range m.browser.services {
-		results = append(results, searchResult{Kind: resourceKindService, Name: svc.Name, Namespace: svc.Namespace})
-	}
-	for _, statefulSet := range m.browser.statefulsets {
-		results = append(results, searchResult{Kind: resourceKindStatefulSet, Name: statefulSet.Name, Namespace: statefulSet.Namespace})
-	}
-	for _, daemonSet := range m.browser.daemonsets {
-		results = append(results, searchResult{Kind: resourceKindDaemonSet, Name: daemonSet.Name, Namespace: daemonSet.Namespace})
-	}
-	for _, configMap := range m.browser.configmaps {
-		results = append(results, searchResult{Kind: resourceKindConfigMap, Name: configMap.Name, Namespace: configMap.Namespace})
-	}
-	for _, job := range m.browser.jobs {
-		results = append(results, searchResult{Kind: resourceKindJob, Name: job.Name, Namespace: job.Namespace})
-	}
-	return results
-}
-
-func (m RootModel) logSearchResults() []searchResult {
-	results := make([]searchResult, 0, len(m.logs.pods))
-	for _, pod := range m.logs.pods {
-		results = append(results, searchResult{Kind: resourceKindPod, Name: pod.Name, Namespace: pod.Namespace})
-	}
-	return results
-}
-
-func uniqueSearchResults(candidates []searchResult) []searchResult {
-	seen := make(map[searchResult]struct{})
-	results := make([]searchResult, 0, len(candidates))
+func uniqueSearchResults(candidates []screenmodel.SearchItem) []screenmodel.SearchItem {
+	seen := make(map[screenmodel.SearchItem]struct{})
+	results := make([]screenmodel.SearchItem, 0, len(candidates))
 	for _, candidate := range candidates {
-		if candidate.Name == "" {
+		if !candidate.Valid() {
 			continue
 		}
 		if _, duplicate := seen[candidate]; duplicate {
@@ -247,12 +205,12 @@ func uniqueSearchResults(candidates []searchResult) []searchResult {
 	return results
 }
 
-func (m RootModel) filterSearchResults(query string) []searchResult {
+func (m RootModel) filterSearchResults(query string) []screenmodel.SearchItem {
 	if query == "" {
 		return m.searchCorpus
 	}
 	normalizedQuery := strings.ToLower(query)
-	var matches []searchResult
+	var matches []screenmodel.SearchItem
 	for _, result := range m.searchCorpus {
 		if strings.Contains(strings.ToLower(result.Name), normalizedQuery) {
 			matches = append(matches, result)

@@ -43,6 +43,14 @@ func TestRootModel_RestoreSession_RejectsOutOfRange(t *testing.T) {
 	}
 }
 
+func TestRootModelRestoreSessionCanonicalizesResourceType(t *testing.T) {
+	model := newTestRootModel(t, "payments")
+	model.RestoreSession(session.SessionState{ResourceType: " SERVICES "})
+	if got := model.browser.ResourceType(); got != "services" {
+		t.Fatalf("restored resource type = %q, want services", got)
+	}
+}
+
 func TestRootModel_View_RendersContent(t *testing.T) {
 	m := freshRoot(t)
 	v := m.View()
@@ -178,12 +186,17 @@ func TestRootModel_UpdateActiveScreen_RoutesToCurrent(t *testing.T) {
 func TestRootModel_ResizeChildren_PropagatesGeometry(t *testing.T) {
 	m := freshRoot(t)
 	m.resizeChildren()
+	helmWidth, helmHeight := m.helm.Size()
+	crdsWidth, crdsHeight := m.crds.Size()
+	logsWidth, logsHeight := m.logs.Size()
+	dashboardWidth, dashboardHeight := m.dashboard.Size()
+	browserWidth, browserHeight := m.browser.Size()
 	for name, size := range map[string][2]int{
-		"dashboard": {m.dashboard.width, m.dashboard.height},
-		"browser":   {m.browser.width, m.browser.height},
-		"logs":      {m.logs.width, m.logs.height},
-		"helm":      {m.helm.width, m.helm.height},
-		"crds":      {m.crds.width, m.crds.height},
+		"dashboard": {dashboardWidth, dashboardHeight},
+		"browser":   {browserWidth, browserHeight},
+		"logs":      {logsWidth, logsHeight},
+		"helm":      {helmWidth, helmHeight},
+		"crds":      {crdsWidth, crdsHeight},
 	} {
 		if size[0] != m.width || size[1] <= 0 || size[1] >= m.height {
 			t.Errorf("%s geometry = %dx%d", name, size[0], size[1])
@@ -193,18 +206,18 @@ func TestRootModel_ResizeChildren_PropagatesGeometry(t *testing.T) {
 
 func TestRootModel_DeactivateScreen_ClearsScreenActivity(t *testing.T) {
 	m := freshRoot(t)
-	m.dashboard.active = true
-	m.browser.active = true
-	m.logs.active = true
+	m.dashboard.Activate()
+	m.browser.Activate()
+	m.logs.Activate()
 	m.analysisPanel.SetVisible(true)
-	m.helm.loading = true
-	m.crds.loading = true
+	m.helm.Activate()
+	m.crds.Activate()
 	for _, s := range []screenID{ScreenDashboard, ScreenBrowser, ScreenLogs, ScreenAnalysis, ScreenHelm, ScreenCRDs} {
 		m.deactivateScreen(s)
 	}
-	if m.dashboard.active || m.browser.active || m.logs.active || m.analysisPanel.IsVisible() || m.helm.loading || m.crds.loading {
+	if m.dashboard.Active() || m.browser.Active() || m.logs.Active() || m.analysisPanel.IsVisible() || m.helm.Loading() || m.crds.Loading() {
 		t.Fatalf("deactivation left active state: dashboard=%v browser=%v logs=%v analysis=%v helm=%v crds=%v",
-			m.dashboard.active, m.browser.active, m.logs.active, m.analysisPanel.IsVisible(), m.helm.loading, m.crds.loading)
+			m.dashboard.Active(), m.browser.Active(), m.logs.Active(), m.analysisPanel.IsVisible(), m.helm.Loading(), m.crds.Loading())
 	}
 }
 
@@ -330,26 +343,24 @@ func TestRootModel_OpenPFModal_TogglesVisibility(t *testing.T) {
 
 func TestRootModel_UpdateAnalysisScreenContext_UsesActiveScreenData(t *testing.T) {
 	m := freshRoot(t)
-	m.dashboard.pods = []cluster.Pod{{Name: "dashboard-api", Namespace: "default"}}
 	m.screen = ScreenDashboard
 	m.updateAnalysisScreenContext()
-	if !strings.Contains(m.analysisPanel.screenContext, "dashboard-api") {
-		t.Fatalf("dashboard context = %q", m.analysisPanel.screenContext)
+	if !strings.Contains(m.analysisPanel.ScreenContext(), m.namespace) {
+		t.Fatalf("dashboard context = %q", m.analysisPanel.ScreenContext())
 	}
 
-	m.browser.pods = []cluster.Pod{{Name: "browser-api", Namespace: "default"}}
 	m.screen = ScreenBrowser
 	m.updateAnalysisScreenContext()
-	if !strings.Contains(m.analysisPanel.screenContext, "browser-api") {
-		t.Fatalf("browser context = %q", m.analysisPanel.screenContext)
+	if !strings.Contains(m.analysisPanel.ScreenContext(), m.namespace) {
+		t.Fatalf("browser context = %q", m.analysisPanel.ScreenContext())
 	}
 
-	m.logs.selectedPod = "logs-api"
-	m.logs.allLines = []string{"ready"}
+	m.logs.SetPodInNamespace("logs-api", "default")
+	m.logs, _ = m.logs.Update(cluster.LogsMsg{Lines: []string{"ready"}})
 	m.screen = ScreenLogs
 	m.updateAnalysisScreenContext()
-	if !strings.Contains(m.analysisPanel.screenContext, "logs-api") {
-		t.Fatalf("logs context = %q", m.analysisPanel.screenContext)
+	if !strings.Contains(m.analysisPanel.ScreenContext(), "logs-api") {
+		t.Fatalf("logs context = %q", m.analysisPanel.ScreenContext())
 	}
 }
 
@@ -374,10 +385,43 @@ func TestRootModel_HandleCmdPalette_EscClosesIt(t *testing.T) {
 }
 
 func TestRootModel_HandleDrillDown_RoutesToTargetScreen(t *testing.T) {
+	model := freshRoot(t)
+	request := DrillDownMsg{Screen: ScreenBrowser, ResourceType: "pods", ResourceName: "p1", ResourceNS: "ns"}
+	updated, command := model.handleDrillDown(request)
+	root := updated.(RootModel)
+	t.Cleanup(func() { root.browser.Deactivate() })
+	if command == nil {
+		t.Fatal("browser drill-down returned no command")
+	}
+	if root.screen != ScreenBrowser || root.browser.ResourceType() != "pods" {
+		t.Fatalf("browser drill-down = screen:%d resource:%q", root.screen, root.browser.ResourceType())
+	}
+	inspectionFound := false
+	for _, message := range commandMessages(t, command) {
+		if _, ok := message.(cluster.DescribeMsg); ok {
+			inspectionFound = true
+		}
+	}
+	if !inspectionFound {
+		t.Fatal("browser drill-down did not issue resource inspection")
+	}
+}
+
+func TestRootModel_UpdateAnalysisScreenContext_ExcludesSecretDetail(t *testing.T) {
+	const secretSentinel = "super-secret-detail"
 	m := freshRoot(t)
-	model, _ := m.handleDrillDown(DrillDownMsg{Screen: ScreenBrowser, ResourceType: "pods", ResourceName: "p1", ResourceNS: "ns"})
-	r := model.(RootModel)
-	if r.screen != ScreenBrowser {
-		t.Errorf("drill-down to Browser should switch screen; got %d", r.screen)
+	m.screen = ScreenBrowser
+	m.browser.SetResourceType("secrets")
+	m.browser, _ = m.browser.Update(cluster.DescribeMsg{Output: secretSentinel})
+	m.updateAnalysisScreenContext()
+	if strings.Contains(m.analysisPanel.ScreenContext(), secretSentinel) {
+		t.Fatal("secret detail leaked into analysis context")
+	}
+
+	m.browser.SetResourceType("pods")
+	m.browser, _ = m.browser.Update(cluster.DescribeMsg{Output: secretSentinel})
+	m.updateAnalysisScreenContext()
+	if !strings.Contains(m.analysisPanel.ScreenContext(), secretSentinel) {
+		t.Fatal("non-secret detail missing from analysis context")
 	}
 }

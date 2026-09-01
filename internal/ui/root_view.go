@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/HediAbed/opsmate/internal/terminal"
 	"github.com/HediAbed/opsmate/internal/ui/component"
 	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
@@ -141,7 +142,7 @@ func (m RootModel) renderRootError() string {
 	if m.err == nil {
 		return ""
 	}
-	message := sanitizeTerminalLine(m.err.Error())
+	message := terminal.SanitizeLine(m.err.Error())
 	return theme.ErrorBanner.Width(m.width).MaxWidth(m.width).Render("ERROR: " + message + "   (esc dismiss)")
 }
 

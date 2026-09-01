@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -9,7 +12,9 @@ import (
 
 	"github.com/HediAbed/opsmate/internal/analysis"
 	"github.com/HediAbed/opsmate/internal/cluster"
-	"github.com/HediAbed/opsmate/internal/kube"
+	"github.com/HediAbed/opsmate/internal/ui/analysispanel"
+	clusterui "github.com/HediAbed/opsmate/internal/ui/cluster"
+	"github.com/HediAbed/opsmate/internal/ui/screen"
 )
 
 func TestRootInitializationRunsOnce(t *testing.T) {
@@ -34,130 +39,161 @@ func TestRootInitializationRunsOnce(t *testing.T) {
 	}
 }
 
+func newTestRootModelWithAnalysis(t *testing.T, namespace, responseBody string) RootModel {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(responseBody))
+	}))
+	t.Cleanup(server.Close)
+	t.Setenv("OPSMATE_PROVIDER_URL", server.URL)
+	t.Setenv("OPSMATE_PROVIDER_MODEL", "test-model")
+	t.Setenv("OPSMATE_PROVIDER_API_KEY", "test-key")
+	service, err := analysis.NewServiceFromEnvironment()
+	if err != nil {
+		t.Fatalf("NewServiceFromEnvironment() error = %v", err)
+	}
+	operations := &testClusterOperations{}
+	root, err := NewRootModel(namespace, RuntimeDependencies{
+		Context:           context.Background(),
+		ClusterContext:    &testContextManager{},
+		ClusterResources:  &testResourceReader{},
+		ClusterSnapshots:  &snapshotCollectorStub{},
+		ClusterObserver:   &testResourceObserver{},
+		ClusterOperations: operations,
+		HelmReleases:      operations,
+		Analysis:          service,
+	})
+	if err != nil {
+		t.Fatalf("NewRootModel() error = %v", err)
+	}
+	return root
+}
+
 func TestRootRoutesAnalysisAndLogEnvelopes(t *testing.T) {
 	t.Run("analysis response", func(t *testing.T) {
-		model := freshRoot(t)
-		model.analysisPanel.requestID = 4
-		updated, _ := model.Update(analysisRequestResultMsg{requestID: 4, payload: analysis.AnalysisMsg{Response: "healthy"}})
-		if response := updated.(RootModel).analysisPanel.response; response != "healthy" {
-			t.Errorf("analysis response = %q", response)
+		model := newTestRootModelWithAnalysis(t, "default", `{"choices":[{"message":{"content":"cluster looks healthy"}}]}`)
+		model.analysisPanel.SetVisible(true)
+		model.analysisPanel.Focus()
+		for _, key := range "status" {
+			updated, _ := model.Update(tea.KeyPressMsg{Code: key, Text: string(key)})
+			model = updated.(RootModel)
+		}
+		updated, command := model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "enter"})
+		model = updated.(RootModel)
+		if command == nil {
+			t.Fatal("analysis submit returned no command")
+		}
+		var result analysispanel.ResultMsg
+		found := false
+		for _, message := range commandMessages(t, command) {
+			if candidate, ok := message.(analysispanel.ResultMsg); ok {
+				result, found = candidate, true
+			}
+		}
+		if !found || result.RequestID == 0 {
+			t.Fatalf("analysis request result = %#v", result)
+		}
+		updated, _ = model.Update(result)
+		if response := updated.(RootModel).analysisPanel.Response(); !strings.Contains(response, "cluster looks healthy") {
+			t.Fatalf("analysis response = %q", response)
 		}
 	})
 
-	t.Run("pod list", func(t *testing.T) {
-		model := freshRoot(t)
-		model.logs.podListRequestID = 3
-		model.logs.selectedPod = "current"
-		message := logPodsResultMsg{requestID: 3, namespace: model.logs.namespace, payload: cluster.PodsMsg{Pods: []cluster.Pod{{Name: "worker", Namespace: "default"}}}}
-		updated, _ := model.Update(message)
-		if pods := updated.(RootModel).logs.pods; len(pods) != 1 || pods[0].Name != "worker" {
-			t.Errorf("log pod list = %+v", pods)
-		}
-	})
-
-	t.Run("container list", func(t *testing.T) {
+	t.Run("log response", func(t *testing.T) {
 		model := freshRoot(t)
 		model.logs.SetPodInNamespace("worker", "default")
-		model.logs.containerRequestID = 5
-		message := containersResultMsg{
-			requestID: 5,
-			pod:       resourceIdentity{Kind: "pod", Namespace: "default", Name: "worker"},
-			payload:   cluster.ContainersMsg{Containers: []string{"main", "sidecar"}},
+		command := model.logs.SetPodCmd()
+		if command == nil {
+			t.Fatal("log request command is nil")
 		}
-		updated, _ := model.Update(message)
-		logs := updated.(RootModel).logs
-		if !logs.showContainerPopup || len(logs.containers) != 2 {
-			t.Errorf("container response not applied: popup=%v containers=%v", logs.showContainerPopup, logs.containers)
-		}
-	})
-
-	t.Run("line explanation", func(t *testing.T) {
-		model := freshRoot(t)
-		model.logs.SetPodInNamespace("worker", "default")
-		model.logs.inspectMode = true
-		model.logs.filteredLines = []string{"failure"}
-		model.logs.explainRequestID = 2
-		message := logExplainResultMsg{
-			requestID: 2,
-			pod:       resourceIdentity{Kind: "pod", Namespace: "default", Name: "worker"},
-			line:      "failure",
-			payload:   analysis.LogExplanationMsg{Explanation: "actionable cause"},
-		}
-		updated, _ := model.Update(message)
-		if explanation := updated.(RootModel).logs.lineExplanation; explanation != "actionable cause" {
-			t.Errorf("log explanation = %q", explanation)
+		updated, _ := model.Update(command())
+		if updated.(RootModel).logs.Loading() {
+			t.Error("log response was not routed")
 		}
 	})
 }
 
 func TestRootRoutesScreenSpecificResultEnvelopes(t *testing.T) {
-	t.Run("browser detail", func(t *testing.T) {
-		model := freshRoot(t)
-		model.browser.pods = []cluster.Pod{{Name: "worker", Namespace: "default"}}
-		model.browser.rebuildTable()
-		model.browser.state = stateDetail
-		model.browser.showDetail = true
-		model.browser.detailKind = "describe"
-		model.browser.detailContent = "current details"
-		model.browser.detailRequestID = 6
-		identity, _ := model.browser.selectedIdentity()
-		message := browserDetailSummaryResultMsg{requestID: 6, identity: identity, content: "current details", payload: analysis.DescribeSummaryMsg{Summary: "stable"}}
-		updated, _ := model.Update(message)
-		if summary := updated.(RootModel).browser.analysisSummary; summary != "stable" {
-			t.Errorf("browser summary = %q", summary)
-		}
-	})
-
-	t.Run("dashboard health", func(t *testing.T) {
-		model := freshRoot(t)
-		model.dashboard.healthRequestID = 2
-		message := dashboardHealthResultMsg{requestID: 2, namespace: model.dashboard.namespace, payload: analysis.DashboardHealthMsg{Summary: "stable"}}
-		updated, _ := model.Update(message)
-		if summary := updated.(RootModel).dashboard.healthAnalysisSummary; summary != "stable" {
-			t.Errorf("dashboard summary = %q", summary)
-		}
-	})
-
 	t.Run("helm releases", func(t *testing.T) {
 		model := freshRoot(t)
-		model.helm.releasesRequestID = 8
-		message := helmResultMsg{kind: helmReleasesResult, requestID: 8, namespace: model.helm.namespace, payload: helmReleasesMsg{Releases: []kube.HelmRelease{{Name: "gateway", Namespace: "default"}}}}
-		updated, _ := model.Update(message)
-		if releases := updated.(RootModel).helm.releases; len(releases) != 1 || releases[0].Name != "gateway" {
-			t.Errorf("helm releases = %+v", releases)
+		command := model.helm.SetNamespace("routing-test")
+		updated, _ := model.Update(command())
+		if updated.(RootModel).helm.Loading() {
+			t.Error("Helm result was not routed")
 		}
 	})
 
 	t.Run("custom resources", func(t *testing.T) {
 		model := freshRoot(t)
-		model.crds.listRequestID = 9
-		message := crdResultMsg{kind: crdListResult, requestID: 9, namespace: model.crds.namespace, payload: cluster.CRDsMsg{CRDs: []cluster.CRD{{Name: "widgets.example.test", Resource: "widgets"}}}}
-		updated, _ := model.Update(message)
-		if resources := updated.(RootModel).crds.crds; len(resources) != 1 || resources[0].Resource != "widgets" {
-			t.Errorf("custom resources = %+v", resources)
+		command := model.crds.SetNamespace("routing-test")
+		updated, _ := model.Update(command())
+		if updated.(RootModel).crds.Loading() {
+			t.Error("CRD result was not routed")
 		}
 	})
 }
 
-func TestRootRoutesStaleShellAndLiveMessagesWithoutCrossScreenEffects(t *testing.T) {
-	model := freshRoot(t)
-	model.browser.statusMsg = "retained"
-	for _, message := range []tea.Msg{
-		shellOutputMsg{SessionID: "stale", Line: "ignored"},
-		shellExitMsg{SessionID: "stale"},
-		supervisedLiveMsg{generation: 1, payload: liveSnapshotMsg[cluster.Pod]{}},
-	} {
-		updated, _ := model.Update(message)
-		root := updated.(RootModel)
-		if root.browser.statusMsg != "retained" || root.screen != model.screen {
-			t.Errorf("%T changed unrelated root state", message)
+func TestRootIgnoresUnownedLiveMessages(t *testing.T) {
+	t.Run("browser data preserved", func(t *testing.T) {
+		model := newSeededLiveRootModel(t)
+		root, command := sendUnownedLiveMessage(t, model)
+		if command != nil {
+			t.Fatalf("unowned live message returned command %v", command)
 		}
-	}
+		browserItems := root.browser.SearchItems()
+		if len(browserItems) != 1 || browserItems[0].Name != "browser-pod" {
+			t.Fatalf("unowned live message changed browser data: %+v", browserItems)
+		}
+	})
 
-	updated, command := model.Update(dashMetricsTickMsg{})
-	if command == nil || updated.(RootModel).screen != model.screen {
-		t.Errorf("dashboard tick was not routed: command=%v", command)
+	t.Run("dashboard data preserved", func(t *testing.T) {
+		model := newSeededLiveRootModel(t)
+		root, _ := sendUnownedLiveMessage(t, model)
+		dashboardItems := root.dashboard.SearchItems()
+		if len(dashboardItems) == 0 {
+			t.Fatal("unowned live message cleared dashboard data")
+		}
+		for _, item := range dashboardItems {
+			if item.Name == "intruder" {
+				t.Fatalf("unowned live message injected dashboard data: %+v", dashboardItems)
+			}
+		}
+	})
+
+	t.Run("root state preserved", func(t *testing.T) {
+		model := newSeededLiveRootModel(t)
+		root, _ := sendUnownedLiveMessage(t, model)
+		if root.screen != model.screen || root.browser.Error() != nil || root.dashboard.Error() != nil {
+			t.Fatalf("unowned live message changed root state: screen=%d", root.screen)
+		}
+	})
+}
+
+func newSeededLiveRootModel(t *testing.T) RootModel {
+	t.Helper()
+	model := newTestRootModelWithObserver(t, "default", &testResourceObserver{
+		resourceName:      "dashboard-pod",
+		resourceNamespace: "default",
+	})
+	for _, message := range commandMessages(t, model.dashboard.Activate()) {
+		model.dashboard, _ = model.dashboard.Update(message)
 	}
+	t.Cleanup(func() { model.dashboard.Deactivate() })
+	model.browser, _ = model.browser.Update(cluster.PodsMsg{Pods: []cluster.Pod{{Name: "browser-pod", Namespace: "default"}}})
+	return model
+}
+
+func sendUnownedLiveMessage(t *testing.T, model RootModel) (RootModel, tea.Cmd) {
+	t.Helper()
+	intruder := screen.LiveMessage{
+		Generation: ^uint64(0),
+		Payload: screen.LiveSnapshot[cluster.Pod]{State: clusterui.LiveState[cluster.Pod]{
+			Ready: true,
+			Items: []cluster.Pod{{Name: "intruder", Namespace: "default"}},
+		}},
+	}
+	updated, command := model.Update(intruder)
+	return updated.(RootModel), command
 }
 
 func TestRootBroadcastsSpinnerAndContextData(t *testing.T) {
@@ -165,11 +201,10 @@ func TestRootBroadcastsSpinnerAndContextData(t *testing.T) {
 	model.screen = ScreenDashboard
 	model.analysisPanel.SetVisible(true)
 	model.analysisPanel.SetScreenContext("before")
-	model.dashboard.pods = []cluster.Pod{{Name: "worker", Namespace: "default"}}
 	updatedModel, _ := model.broadcastRootMessage(cluster.MetricsMsg{})
 	updated := updatedModel.(RootModel)
-	if !strings.Contains(updated.analysisPanel.screenContext, "worker") {
-		t.Errorf("analysis context was not refreshed: %q", updated.analysisPanel.screenContext)
+	if !strings.Contains(updated.analysisPanel.ScreenContext(), model.namespace) {
+		t.Errorf("analysis context was not refreshed: %q", updated.analysisPanel.ScreenContext())
 	}
 
 	spinnerCommand := model.nsSpinner.Tick

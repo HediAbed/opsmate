@@ -86,6 +86,12 @@ type portForwardDiagnostics struct {
 	limit   int
 }
 
+type preparedPortForward struct {
+	process     *portForwardProcess
+	runner      portForwardRunner
+	diagnostics *portForwardDiagnostics
+}
+
 func (m *Manager) StartPortForward(parent context.Context, request PortForwardRequest) (PortForward, error) {
 	if err := validatePortForwardRequest(request); err != nil {
 		return nil, newResourceError(OperationStart, SubjectPortForward, request.Pod.Identifier(), err)
@@ -100,42 +106,40 @@ func (m *Manager) StartPortForward(parent context.Context, request PortForwardRe
 	if err != nil {
 		return nil, newResourceError(OperationStart, SubjectPortForward, request.Pod.Identifier(), err)
 	}
-	streamURL, err := podPortForwardURL(clients, request.Pod)
+	prepared, err := m.preparePortForward(clients, cancel, request)
 	if err != nil {
 		cancel()
 		return nil, newResourceError(OperationBuild, SubjectPortForward, request.Pod.Identifier(), err)
 	}
-	if m.newPortForward == nil {
-		cancel()
-		return nil, newResourceError(OperationBuild, SubjectPortForward, request.Pod.Identifier(), ErrPortForwarderUnavailable)
+	prepared.process.stopContextWatch = context.AfterFunc(ctx, prepared.process.cancelFromContext)
+	m.portForwards.add(prepared.process)
+	go m.runPortForward(prepared.process, prepared.runner, prepared.diagnostics)
+	if err := m.awaitPortForwardStart(parent, ctx, prepared.process); err != nil {
+		return nil, newResourceError(OperationStart, SubjectPortForward, request.Pod.Identifier(), err)
 	}
+	return prepared.process, nil
+}
 
+func (m *Manager) preparePortForward(clients *Clients, cancel context.CancelFunc, request PortForwardRequest) (preparedPortForward, error) {
+	streamURL, err := podPortForwardURL(clients, request.Pod)
+	if err != nil {
+		return preparedPortForward{}, err
+	}
+	if m.newPortForward == nil {
+		return preparedPortForward{}, ErrPortForwarderUnavailable
+	}
 	diagnostics := newPortForwardDiagnostics(portForwardDiagnosticLimit)
 	process := m.newPortForwardProcess(cancel, request)
 	runner, err := m.newPortForward(
-		clients.RESTConfig(),
-		streamURL,
-		request,
-		process.stop,
-		process.ready,
-		io.Discard,
-		diagnostics,
+		clients.RESTConfig(), streamURL, request, process.stop, process.ready, io.Discard, diagnostics,
 	)
 	if err != nil {
-		cancel()
-		return nil, newResourceError(OperationBuild, SubjectPortForward, request.Pod.Identifier(), err)
+		return preparedPortForward{}, err
 	}
 	if runner == nil {
-		cancel()
-		return nil, newResourceError(OperationBuild, SubjectPortForward, request.Pod.Identifier(), ErrPortForwarderUnavailable)
+		return preparedPortForward{}, ErrPortForwarderUnavailable
 	}
-	process.stopContextWatch = context.AfterFunc(ctx, process.cancelFromContext)
-	m.portForwards.add(process)
-	go m.runPortForward(process, runner, diagnostics)
-	if err := m.awaitPortForwardStart(parent, ctx, process); err != nil {
-		return nil, newResourceError(OperationStart, SubjectPortForward, request.Pod.Identifier(), err)
-	}
-	return process, nil
+	return preparedPortForward{process: process, runner: runner, diagnostics: diagnostics}, nil
 }
 
 func (m *Manager) awaitPortForwardStart(parent, session context.Context, process *portForwardProcess) error {

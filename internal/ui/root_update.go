@@ -31,111 +31,47 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m RootModel) updateRootAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case analysisRequestResultMsg:
-		var cmd tea.Cmd
-		m.analysisPanel, cmd = m.analysisPanel.Update(msg)
-		return m, cmd
-
-	case logsResultMsg:
-		accepted := m.logs.acceptsLogResult(msg)
-		var cmd tea.Cmd
-		m.logs, cmd = m.logs.Update(msg)
-		m.refreshAnalysisContext(ScreenLogs, accepted)
-		return m, cmd
-
-	case logPodsResultMsg:
-		accepted := m.logs.acceptsPodListResult(msg)
-		var cmd tea.Cmd
-		m.logs, cmd = m.logs.Update(msg)
-		m.refreshAnalysisContext(ScreenLogs, accepted)
-		return m, cmd
-
-	case containersResultMsg:
-		accepted := m.logs.acceptsContainersResult(msg)
-		var cmd tea.Cmd
-		m.logs, cmd = m.logs.Update(msg)
-		m.refreshAnalysisContext(ScreenLogs, accepted)
-		return m, cmd
-
-	case logExplainResultMsg:
-		var cmd tea.Cmd
-		m.logs, cmd = m.logs.Update(msg)
-		return m, cmd
-
-	case browserResultMsg:
-		accepted := m.browser.acceptsFetchResult(msg)
-		var cmd tea.Cmd
-		m.browser, cmd = m.browser.Update(msg)
-		m.refreshAnalysisContext(ScreenBrowser, accepted)
-		return m, cmd
-
-	case browserDetailSummaryResultMsg:
-		var cmd tea.Cmd
-		m.browser, cmd = m.browser.Update(msg)
-		return m, cmd
-	default:
-		return m.updateRootScreenResultMessage(msg)
+	if m.analysisPanel.Accepts(msg) {
+		var command tea.Cmd
+		m.analysisPanel, command = m.analysisPanel.Update(msg)
+		return m, command
 	}
+	if m.logs.Accepts(msg) {
+		contextChanged := m.logs.ContextChangedBy(msg)
+		var command tea.Cmd
+		m.logs, command = m.logs.Update(msg)
+		m.refreshAnalysisContext(ScreenLogs, contextChanged)
+		return m, command
+	}
+	if m.dashboard.Accepts(msg) {
+		contextChanged := m.dashboard.ContextChangedBy(msg)
+		var command tea.Cmd
+		m.dashboard, command = m.dashboard.Update(msg)
+		m.refreshAnalysisContext(ScreenDashboard, contextChanged)
+		return m, command
+	}
+	if m.browser.Accepts(msg) {
+		contextChanged := m.browser.ContextChangedBy(msg)
+		var command tea.Cmd
+		m.browser, command = m.browser.Update(msg)
+		m.refreshAnalysisContext(ScreenBrowser, contextChanged)
+		return m, command
+	}
+	return m.updateRootScreenResultMessage(msg)
 }
 
 func (m RootModel) updateRootScreenResultMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case dashboardResultMsg:
-		accepted := m.dashboard.acceptsResult(msg)
-		var cmd tea.Cmd
-		m.dashboard, cmd = m.dashboard.Update(msg)
-		m.refreshAnalysisContext(ScreenDashboard, accepted)
-		return m, cmd
-
-	case dashboardHealthResultMsg:
-		var cmd tea.Cmd
-		m.dashboard, cmd = m.dashboard.Update(msg)
-		return m, cmd
-
-	case helmResultMsg:
-		var cmd tea.Cmd
-		m.helm, cmd = m.helm.Update(msg)
-		return m, cmd
-
-	case crdResultMsg:
-		var cmd tea.Cmd
-		m.crds, cmd = m.crds.Update(msg)
-		return m, cmd
-
-	case shellOutputMsg:
-		var cmd tea.Cmd
-		m.browser, cmd = m.browser.Update(msg)
-		return m, cmd
-
-	case shellExitMsg:
-		var cmd tea.Cmd
-		m.browser, cmd = m.browser.Update(msg)
-		return m, cmd
-	default:
-		return m.updateRootLiveMessage(msg)
+	if m.helm.Accepts(msg) {
+		var command tea.Cmd
+		m.helm, command = m.helm.Update(msg)
+		return m, command
 	}
-}
-
-func (m RootModel) updateRootLiveMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case supervisedLiveMsg:
-		dashboardOwns := m.dashboard.ownsSupervisedLiveMessage(msg)
-		browserOwns := m.browser.ownsSupervisedLiveMessage(msg)
-		var dashboardCmd, browserCmd tea.Cmd
-		m.dashboard, dashboardCmd = m.dashboard.Update(msg)
-		m.browser, browserCmd = m.browser.Update(msg)
-		m.refreshAnalysisContext(ScreenDashboard, dashboardOwns)
-		m.refreshAnalysisContext(ScreenBrowser, browserOwns)
-		return m, tea.Batch(dashboardCmd, browserCmd)
-
-	case dashMetricsTickMsg:
-		var cmd tea.Cmd
-		m.dashboard, cmd = m.dashboard.Update(msg)
-		return m, cmd
-	default:
-		return m.updateRootClusterMessage(msg)
+	if m.crds.Accepts(msg) {
+		var command tea.Cmd
+		m.crds, command = m.crds.Update(msg)
+		return m, command
 	}
+	return m.updateRootClusterMessage(msg)
 }
 
 func (m RootModel) updateRootClusterMessage(msg tea.Msg) (tea.Model, tea.Cmd) {

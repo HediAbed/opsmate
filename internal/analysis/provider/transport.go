@@ -18,6 +18,7 @@ import (
 const (
 	maxProviderResponseBytes = 4 * 1024 * 1024
 	maxErrorDetailRunes      = 200
+	maximumHTTPStatusCode    = 599
 )
 
 var (
@@ -126,7 +127,7 @@ func providerHTTPFailureCode(statusCode int) failure.Code {
 	if code, found := providerClientFailureCode(statusCode); found {
 		return code
 	}
-	if statusCode >= http.StatusInternalServerError && statusCode <= 599 {
+	if statusCode >= http.StatusInternalServerError && statusCode <= maximumHTTPStatusCode {
 		return failure.CodeUnavailable
 	}
 	return failure.CodeUnknown
@@ -170,15 +171,7 @@ func executeProviderRequest(
 	if err != nil {
 		return nil, &Error{Provider: provider, Operation: operation, Err: err}
 	}
-	defer func() {
-		if closeErr := response.Body.Close(); closeErr != nil {
-			returnErr = errors.Join(returnErr, &Error{
-				Provider:  provider,
-				Operation: operation,
-				Err:       fmt.Errorf("close response: %w", closeErr),
-			})
-		}
-	}()
+	defer joinProviderBodyCloseError(&returnErr, response.Body, provider, operation)
 	body, readErr := readProviderBody(response.Body)
 	if readErr != nil {
 		return nil, &Error{Provider: provider, Operation: operation, Err: readErr}
@@ -187,6 +180,16 @@ func executeProviderRequest(
 		return nil, providerStatusError(provider, operation, response.StatusCode, body)
 	}
 	return body, nil
+}
+
+func joinProviderBodyCloseError(returnErr *error, body io.Closer, provider string, operation failure.Operation) {
+	if closeErr := body.Close(); closeErr != nil {
+		*returnErr = errors.Join(*returnErr, &Error{
+			Provider:  provider,
+			Operation: operation,
+			Err:       fmt.Errorf("close response: %w", closeErr),
+		})
+	}
 }
 
 func openProviderStream(

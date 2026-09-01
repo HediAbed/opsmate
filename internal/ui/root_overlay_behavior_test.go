@@ -8,6 +8,8 @@ import (
 
 	"github.com/HediAbed/opsmate/internal/cluster"
 	"github.com/HediAbed/opsmate/internal/kube"
+	screenmodel "github.com/HediAbed/opsmate/internal/ui/screen"
+	browserscreen "github.com/HediAbed/opsmate/internal/ui/screen/browser"
 )
 
 func TestRootPrimaryOverlaysOwnKeyboardInput(t *testing.T) {
@@ -26,7 +28,7 @@ func TestRootPrimaryOverlaysOwnKeyboardInput(t *testing.T) {
 		model := freshRoot(t)
 		model.showSearch = true
 		model.searchInput.Focus()
-		model.searchCorpus = []searchResult{{Kind: "pod", Name: "worker"}}
+		model.searchCorpus = []screenmodel.SearchItem{{Kind: screenmodel.ResourceKindPod, Name: "worker"}}
 		updated, _ := model.handleRootKey(tea.KeyPressMsg{Code: 'w', Text: "w"})
 		root := updated.(RootModel)
 		if root.searchInput.Value() != "w" || len(root.searchResults) != 1 {
@@ -70,7 +72,7 @@ func TestRootSecondaryOverlaysOwnKeyboardInput(t *testing.T) {
 		model.analysisPanel.SetVisible(true)
 		model.analysisPanel.Focus()
 		updated, _ := model.handleRootKey(tea.KeyPressMsg{Code: 'x', Text: "x"})
-		if value := updated.(RootModel).analysisPanel.input.Value(); value != "x" {
+		if value := updated.(RootModel).analysisPanel.InputValue(); value != "x" {
 			t.Errorf("analysis input = %q", value)
 		}
 	})
@@ -90,7 +92,7 @@ func TestRootSecondaryOverlaysOwnKeyboardInput(t *testing.T) {
 func TestRootFocusedScreenInterruptPolicy(t *testing.T) {
 	model := freshRoot(t)
 	model.screen = ScreenBrowser
-	model.browser.state = stateFilter
+	model.browser, _ = model.browser.Update(tea.KeyPressMsg{Code: '/', Text: "/"})
 	_, command := model.handleFocusedScreenKey(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}, "ctrl+c")
 	if command == nil {
 		t.Fatal("focused non-shell screen did not return quit command")
@@ -100,11 +102,27 @@ func TestRootFocusedScreenInterruptPolicy(t *testing.T) {
 		t.Fatalf("interrupt command returned %T", rawMessage)
 	}
 
-	model.browser.state = stateShell
-	model.browser.shellSession = makeFakeShellSession(t)
+	session := newTestShellSession()
+	operations := &testClusterOperations{shellSession: session}
+	adapter := newNativeClusterOperations(model.runtime.Context, operations, operations, operations, operations)
+	commands := newNativeClusterCommands(model.runtime.Context, &testResourceReader{}, &testResourceObserver{})
+	model.browser = browserscreen.NewBrowserModel(model.namespace, commands, adapter)
+	model.browser.SetSize(model.width, model.height)
+	model.browser, _ = model.browser.Update(cluster.PodsMsg{Pods: []cluster.Pod{{Name: "worker", Namespace: "default", Status: "Running"}}})
+	model.browser, _ = model.browser.Update(tea.KeyPressMsg{Code: 'X', Text: "X"})
+	if !model.browser.InShell() {
+		t.Fatal("browser did not open the shell")
+	}
 	updated, command := model.handleFocusedScreenKey(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}, "ctrl+c")
-	if command != nil || updated.(RootModel).browser.state != stateBrowsing {
-		t.Errorf("shell interrupt escaped root routing: command=%v", command)
+	root := updated.(RootModel)
+	if command != nil {
+		t.Errorf("shell interrupt returned command %v", command)
+	}
+	if root.screen != ScreenBrowser || root.browser.InShell() {
+		t.Errorf("shell interrupt left screen=%d, inShell=%v", root.screen, root.browser.InShell())
+	}
+	if !session.interrupted || !session.closed {
+		t.Fatalf("shell interrupt lifecycle = interrupted:%v closed:%v", session.interrupted, session.closed)
 	}
 }
 
@@ -134,6 +152,14 @@ func TestRootAnalysisToggleCanCloseVisiblePanel(t *testing.T) {
 }
 
 func TestRootMouseIsBlockedByPrimaryOverlays(t *testing.T) {
+	baseline := rootWithSelectableBrowserRows(t)
+	rowY := browserRowY(t, baseline, "overlay-second")
+	updated, command := baseline.handleMouse(tea.MouseClickMsg{X: 10, Y: rowY, Button: tea.MouseLeft})
+	if command != nil {
+		t.Fatalf("unblocked browser click returned command %v", command)
+	}
+	assertRootBrowserSelection(t, updated.(RootModel), "overlay-second")
+
 	setups := []struct {
 		name  string
 		apply func(*RootModel)
@@ -145,29 +171,83 @@ func TestRootMouseIsBlockedByPrimaryOverlays(t *testing.T) {
 	}
 	for _, setup := range setups {
 		t.Run(setup.name, func(t *testing.T) {
-			model := freshRoot(t)
+			model := rootWithSelectableBrowserRows(t)
 			setup.apply(&model)
-			updated, command := model.handleMouse(tea.MouseClickMsg{X: 10, Y: 10, Button: tea.MouseLeft})
-			if command != nil || updated.(RootModel).screen != model.screen {
-				t.Errorf("overlay mouse changed root: command=%v", command)
+			updated, command := model.handleMouse(tea.MouseClickMsg{X: 10, Y: rowY, Button: tea.MouseLeft})
+			if command != nil {
+				t.Fatalf("blocked browser click returned command %v", command)
 			}
+			root := updated.(RootModel)
+			if root.screen != ScreenBrowser {
+				t.Fatalf("blocked browser click changed screen to %d", root.screen)
+			}
+			assertRootBrowserSelection(t, root, "overlay-first")
 		})
+	}
+}
+
+func rootWithSelectableBrowserRows(t *testing.T) RootModel {
+	t.Helper()
+	model := freshRoot(t)
+	model.screen = ScreenBrowser
+	model.resizeChildren()
+	model.browser, _ = model.browser.Update(cluster.PodsMsg{Pods: []cluster.Pod{
+		{Name: "overlay-first", Namespace: "default", Status: "Running"},
+		{Name: "overlay-second", Namespace: "default", Status: "Running"},
+	}})
+	assertRootBrowserSelection(t, model, "overlay-first")
+	return model
+}
+
+func browserRowY(t *testing.T, model RootModel, name string) int {
+	t.Helper()
+	for row, line := range strings.Split(stripAnsiForTest(model.browser.View()), "\n") {
+		if strings.Contains(line, name) {
+			return row
+		}
+	}
+	t.Fatalf("browser row %q was not rendered", name)
+	return 0
+}
+
+func assertRootBrowserSelection(t *testing.T, model RootModel, wantName string) {
+	t.Helper()
+	kind, name := model.browser.SelectedResource()
+	if kind != string(screenmodel.ResourceKindPod) || name != wantName {
+		t.Fatalf("browser selection = %s/%s, want pod/%s", kind, name, wantName)
+	}
+}
+
+func TestRootRoutesFocusedInputToActiveScreen(t *testing.T) {
+	model := freshRoot(t)
+	model.screen = ScreenBrowser
+	model.browser, _ = model.browser.Update(tea.KeyPressMsg{Code: '/', Text: "/"})
+	if !model.browser.HasInputFocus() {
+		t.Fatal("browser filter did not take input focus")
+	}
+	updated, command := model.handleRootKey(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if command != nil || updated.(RootModel).browser.HasInputFocus() {
+		t.Fatalf("focused browser did not consume escape: command=%v", command)
 	}
 }
 
 func TestRootUpdateRoutesMouseAndUnknownMessages(t *testing.T) {
 	model := freshRoot(t)
-	model.dashboard.pods = []cluster.Pod{{Name: "first"}, {Name: "second"}}
-	model.dashboard.rebuildTableRows()
-	rowY := model.dashboard.podTableTopBoundary() + dashTableHeaderRows + 1
-	updated, _ := model.Update(tea.MouseClickMsg{X: 5, Y: rowY, Button: tea.MouseLeft})
-	if selected := updated.(RootModel).dashboard.SelectedPod(); selected != "second" {
-		t.Errorf("mouse update selected %q, want second", selected)
-	}
-
 	updated, command := model.Update(struct{}{})
 	if command != nil || updated.(RootModel).screen != model.screen {
 		t.Errorf("unknown update changed root: command=%v", command)
+	}
+
+	model.screen = ScreenBrowser
+	model.browser, _ = model.browser.Update(cluster.PodsMsg{Pods: []cluster.Pod{
+		{Name: "first", Namespace: model.namespace, Status: "Running"},
+		{Name: "second", Namespace: model.namespace, Status: "Running"},
+	}})
+	_, beforeName := model.browser.SelectedResource()
+	updated, command = model.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown})
+	_, afterName := updated.(RootModel).browser.SelectedResource()
+	if command != nil || beforeName != "first" || afterName != "second" {
+		t.Fatalf("mouse wheel routing = before:%q after:%q command:%v", beforeName, afterName, command)
 	}
 }
 
@@ -177,6 +257,11 @@ func TestRootAnalysisPanelMouseRejectsMainPane(t *testing.T) {
 	updated, command, handled := model.handleAnalysisPanelMouse(tea.MouseClickMsg{X: 1, Y: 1, Button: tea.MouseLeft})
 	if handled || command != nil || updated.(RootModel).screen != model.screen {
 		t.Fatalf("main-pane mouse claimed by analysis panel: handled=%v command=%v", handled, command)
+	}
+	model.screen = ScreenAnalysis
+	updated, command, handled = model.handleAnalysisPanelMouse(tea.MouseClickMsg{X: model.width - 1, Y: 1, Button: tea.MouseLeft})
+	if handled || command != nil || updated.(RootModel).screen != ScreenAnalysis {
+		t.Fatalf("analysis screen mouse claimed by side panel: handled=%v command=%v", handled, command)
 	}
 }
 
@@ -229,7 +314,7 @@ func TestRootSearchResetsCursorWhenFilterShrinks(t *testing.T) {
 	model := freshRoot(t)
 	model.showSearch = true
 	model.searchInput.Focus()
-	model.searchCorpus = []searchResult{{Name: "alpha"}, {Name: "beta"}}
+	model.searchCorpus = []screenmodel.SearchItem{{Name: "alpha"}, {Name: "beta"}}
 	model.searchResults = model.searchCorpus
 	model.searchCursor = 1
 	updated, _ := model.handleSearch("z", tea.KeyPressMsg{Code: 'z', Text: "z"})
@@ -242,7 +327,7 @@ func TestRootSearchResetsCursorWhenFilterShrinks(t *testing.T) {
 func TestRootSearchOverlayScrollsAndMarksSelection(t *testing.T) {
 	model := freshRoot(t)
 	for index := range 9 {
-		model.searchResults = append(model.searchResults, searchResult{Kind: "pod", Name: string(rune('a' + index)), Namespace: "default"})
+		model.searchResults = append(model.searchResults, screenmodel.SearchItem{Kind: screenmodel.ResourceKindPod, Name: string(rune('a' + index)), Namespace: "default"})
 	}
 	model.searchCursor = 8
 	rendered := stripAnsiForTest(model.renderSearchOverlay(4))
