@@ -28,7 +28,7 @@ type discoverylessKubernetesClient struct {
 	kubernetes.Interface
 }
 
-func (discoverylessKubernetesClient) Discovery() discovery.DiscoveryInterface {
+func (discoverylessKubernetesClient) Discovery() discovery.DiscoveryInterfaces {
 	return nil
 }
 
