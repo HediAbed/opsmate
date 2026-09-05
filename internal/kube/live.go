@@ -17,6 +17,8 @@ import (
 	k8swatch "k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/watchlist"
+
+	"github.com/HediAbed/opsmate/internal/failure"
 )
 
 const informerResyncPeriod = time.Duration(0)
@@ -353,10 +355,14 @@ func (s *liveSet[T]) handleWatchError(ctx context.Context, _ *cache.Reflector, e
 	if ctx.Err() != nil {
 		return
 	}
+	observed := newError(OperationObserve, s.subject, "", err)
 	s.statusMu.Lock()
-	s.lastError = newError(OperationObserve, s.subject, "", err)
+	s.lastError = observed
 	s.statusMu.Unlock()
 	s.notify()
+	if observed.Code == failure.CodePermissionDenied {
+		s.Stop()
+	}
 }
 
 func (s *liveSet[T]) recordChange() {

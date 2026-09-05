@@ -7,7 +7,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/HediAbed/opsmate/internal/cluster"
-	"github.com/HediAbed/opsmate/internal/terminal"
 	clusterui "github.com/HediAbed/opsmate/internal/ui/cluster"
 	"github.com/HediAbed/opsmate/internal/ui/component"
 	"github.com/HediAbed/opsmate/internal/ui/screen"
@@ -109,9 +108,7 @@ func startBrowserLiveSet[T interface{}](
 	err error,
 ) tea.Cmd {
 	if err != nil {
-		model.loading = false
-		model.err = err
-		model.errBanner = terminal.SanitizeLine(err.Error())
+		model.applyListError(err)
 		return nil
 	}
 	return supervisor.Set(set)
@@ -166,7 +163,7 @@ func (m BrowserModel) handleSupervisedLiveMessage(message screen.LiveMessage) (B
 			continue
 		}
 		if message.Closed {
-			return m.handleLiveSetClosed(kind)
+			return m.handleLiveSetClosed(kind, screen.LiveStopError(message))
 		}
 		return m.Update(message.Payload)
 	}
@@ -183,15 +180,13 @@ func (m BrowserModel) OwnsLiveMessage(message screen.LiveMessage) bool {
 	return false
 }
 
-func (m BrowserModel) handleLiveSetClosed(kind string) (BrowserModel, tea.Cmd) {
+func (m BrowserModel) handleLiveSetClosed(kind string, stopErr error) (BrowserModel, tea.Cmd) {
 	set := m.liveSetForKind(kind)
 	if set != nil {
 		set.Stop()
 	}
 	if m.active && m.resourceType == kind {
-		m.loading = false
-		m.err = screen.ErrLiveUpdatesStopped
-		m.errBanner = screen.ErrLiveUpdatesStopped.Error()
+		m.applyListError(stopErr)
 	}
 	return m, nil
 }
@@ -240,9 +235,7 @@ func applyBrowserLiveState[T interface{}](
 		return nil
 	}
 	if state.Err != nil {
-		model.err = state.Err
-		model.errBanner = terminal.SanitizeLine(state.Err.Error())
-		model.loading = false
+		model.applyListError(state.Err)
 		return supervisor.Pull()
 	}
 	model.err = nil
@@ -266,8 +259,7 @@ type browserFetchResource interface {
 func applyTypedFetchResult[T browserFetchResource](model *BrowserModel, kind string, items *[]T, payload []T, err error) {
 	model.loading = false
 	if err != nil {
-		model.err = err
-		model.errBanner = terminal.SanitizeLine(err.Error())
+		model.applyListError(err)
 		return
 	}
 	*items = payload

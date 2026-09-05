@@ -9,6 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/HediAbed/opsmate/internal/terminal"
 	"github.com/HediAbed/opsmate/internal/ui/component"
+	"github.com/HediAbed/opsmate/internal/ui/screen"
 	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
@@ -51,13 +52,26 @@ func (m DashboardModel) renderDashboardSections() dashboardSections {
 	if m.showHealthAnalysis {
 		sections.health = m.renderHealthAnalysis(m.innerW())
 	}
-	if len(m.deployments) > 0 {
+	switch {
+	case m.deploymentsDenied():
+		sections.deployments = renderDeniedSection(m.innerW(), "DEPLOYMENT HEALTH", m.deploymentLiveError)
+	case len(m.deployments) > 0:
 		sections.deployments = m.renderDeploymentHealth(m.innerW())
 	}
-	if len(m.events) > 0 {
+	switch {
+	case m.eventsDenied():
+		sections.events = renderDeniedSection(m.innerW(), "RECENT EVENTS", m.eventLiveError)
+	case len(m.events) > 0:
 		sections.events = m.renderEvents(m.innerW())
 	}
 	return sections
+}
+
+func renderDeniedSection(innerW int, header string, err error) string {
+	body := theme.Accent.Render(header) + "\n" + theme.Notice.Render("  "+screen.AccessNotice(err))
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).BorderForeground(theme.BorderColor).
+		Padding(0, 1).Width(innerW + dashboardPanelOuterChrome).Render(body)
 }
 
 func (m DashboardModel) composeDashboardBody(sections dashboardSections) string {
@@ -166,7 +180,7 @@ func (m DashboardModel) renderOverviewRow(width int) string {
 		badge("Running", running, theme.Success), " ",
 		badge("Pending", pending, theme.Warning), " ",
 		badge("Failed", failed, theme.Error), " ",
-		badge("Deploys", len(m.deployments), overviewBadgeRun),
+		m.renderDeploymentBadge(badge),
 	)
 
 	var distBar string
@@ -191,4 +205,11 @@ func (m DashboardModel) renderOverviewRow(width int) string {
 
 	row := badges + distBar
 	return lipgloss.NewStyle().Width(width).Padding(0, 1).Render(row)
+}
+
+func (m DashboardModel) renderDeploymentBadge(badge func(string, int, lipgloss.Style) string) string {
+	if m.deploymentsDenied() {
+		return theme.Dim.Padding(0, 1).Render("Deploys:n/a")
+	}
+	return badge("Deploys", len(m.deployments), overviewBadgeRun)
 }

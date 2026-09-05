@@ -7,9 +7,11 @@ import (
 	"unicode/utf8"
 
 	"charm.land/lipgloss/v2"
+
 	"github.com/HediAbed/opsmate/internal/cluster"
 	"github.com/HediAbed/opsmate/internal/terminal"
 	"github.com/HediAbed/opsmate/internal/ui/component"
+	"github.com/HediAbed/opsmate/internal/ui/screen"
 	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
@@ -198,7 +200,7 @@ func (m BrowserModel) renderTableContent(height int) string {
 	}
 
 	if len(m.resourceTable.Rows()) == 0 {
-		emptyMsg := theme.Dim.Render("No "+m.resourceType+" found in "+m.namespace) + "\n\n" +
+		emptyMsg := m.renderEmptyTableHeadline() + "\n\n" +
 			theme.HelpKey.Render("[r]") + theme.HelpDesc.Render(" refresh  ") +
 			theme.HelpKey.Render("[p]") + theme.HelpDesc.Render(" pods  ") +
 			theme.HelpKey.Render("[d]") + theme.HelpDesc.Render(" deploys")
@@ -209,6 +211,13 @@ func (m BrowserModel) renderTableContent(height int) string {
 		component.Size{Width: m.width - browserPanelGutter, Height: height - browserPanelGutter},
 		m.resourceTable.View(),
 	)
+}
+
+func (m BrowserModel) renderEmptyTableHeadline() string {
+	if m.listDenied() {
+		return theme.Notice.Render(screen.AccessNotice(m.err))
+	}
+	return theme.Dim.Render("No " + m.resourceType + " found in " + m.namespace)
 }
 
 func (m BrowserModel) renderSplitContent(height int) string {

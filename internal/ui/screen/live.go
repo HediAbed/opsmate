@@ -73,14 +73,28 @@ func (s *LiveSupervisor[T]) nextSnapshotCommand(set clusterui.LiveSet[T]) tea.Cm
 	generation := s.generation
 	return func() tea.Msg {
 		_, open := <-set.Changes()
-		if !open {
-			return LiveMessage{Generation: generation, Closed: true}
-		}
 		return LiveMessage{
 			Generation: generation,
 			Payload:    LiveSnapshot[T]{State: set.State()},
+			Closed:     !open,
 		}
 	}
+}
+
+type liveSnapshotErrorCarrier interface {
+	snapshotError() error
+}
+
+func (s LiveSnapshot[T]) snapshotError() error {
+	return s.State.Err
+}
+
+func LiveStopError(message LiveMessage) error {
+	snapshot, ok := message.Payload.(liveSnapshotErrorCarrier)
+	if ok && AccessDenied(snapshot.snapshotError()) {
+		return snapshot.snapshotError()
+	}
+	return ErrLiveUpdatesStopped
 }
 
 func nextLiveGeneration() uint64 {

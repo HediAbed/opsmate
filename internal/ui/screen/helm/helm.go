@@ -16,6 +16,7 @@ import (
 	"github.com/HediAbed/opsmate/internal/terminal"
 	clusterui "github.com/HediAbed/opsmate/internal/ui/cluster"
 	"github.com/HediAbed/opsmate/internal/ui/component"
+	"github.com/HediAbed/opsmate/internal/ui/screen"
 	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
@@ -289,7 +290,7 @@ func (m HelmModel) applyHelmValues(msg clusterui.HelmValuesMsg) HelmModel {
 	m.valuesPopupLoading = false
 	if msg.Err != nil {
 		m.valuesPopupErr = msg.Err
-		m.valuesPopupView.SetContent(theme.ErrorBanner.Render(" " + terminal.SanitizeLine(msg.Err.Error()) + " "))
+		m.valuesPopupView.SetContent(renderValuesError(msg.Err))
 		return m
 	}
 	content := strings.TrimSpace(terminal.SanitizeText(msg.Values))
@@ -455,9 +456,19 @@ func (m HelmModel) renderHelpBar() string {
 	return lipgloss.NewStyle().Foreground(theme.NeonCyan).Width(m.width).MaxWidth(m.width).Render(hints)
 }
 
+func renderValuesError(err error) string {
+	if screen.AccessDenied(err) {
+		return theme.Notice.Render(screen.AccessNotice(err))
+	}
+	return theme.ErrorBanner.Render(" " + terminal.SanitizeLine(err.Error()) + " ")
+}
+
 func (m HelmModel) renderErrBanner() string {
 	if m.err == nil {
 		return ""
+	}
+	if screen.AccessDenied(m.err) {
+		return theme.NoticeBanner.Width(m.width).MaxWidth(m.width).Render(screen.AccessNotice(m.err))
 	}
 	return theme.ErrorBanner.Width(m.width).MaxWidth(m.width).Render(" " + terminal.SanitizeLine(m.err.Error()) + " ")
 }

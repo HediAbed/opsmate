@@ -45,6 +45,10 @@ func CodeOf(err error) Code {
 	return CodeUnknown
 }
 
+func IsPermissionDenied(err error) bool {
+	return CodeOf(err) == CodePermissionDenied
+}
+
 func normalize(code Code) Code {
 	switch code {
 	case CodeUnknown,

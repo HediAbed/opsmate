@@ -183,11 +183,11 @@ func TestBrowserIgnoresStaleLiveMessages(t *testing.T) {
 
 func TestBrowserIgnoresClosureWhenInactiveOrStatic(t *testing.T) {
 	inactive := newTestBrowserModel("payments")
-	inactive, command := inactive.handleLiveSetClosed("deployments")
+	inactive, command := inactive.handleLiveSetClosed("deployments", screen.ErrLiveUpdatesStopped)
 	if command != nil || inactive.err != nil {
 		t.Fatalf("inactive closure changed visible state: command=%v error=%v", command != nil, inactive.err)
 	}
-	inactive, command = inactive.handleLiveSetClosed("services")
+	inactive, command = inactive.handleLiveSetClosed("services", screen.ErrLiveUpdatesStopped)
 	if command != nil || inactive.err != nil {
 		t.Fatalf("unknown closure changed visible state: command=%v error=%v", command != nil, inactive.err)
 	}

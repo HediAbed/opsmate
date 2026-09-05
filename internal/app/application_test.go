@@ -463,6 +463,95 @@ func TestApplicationTreatsMissingSessionAsNormal(t *testing.T) {
 	}
 }
 
+type contextNamespaceManager struct {
+	fakeContextManager
+	namespace string
+}
+
+func (manager *contextNamespaceManager) Contexts(context.Context) ([]kube.ContextInfo, error) {
+	return []kube.ContextInfo{
+		{Name: "lab"},
+		{Name: "prod", Namespace: manager.namespace, Current: true},
+	}, nil
+}
+
+func TestApplicationStartsInKubeconfigNamespaceWithoutSession(t *testing.T) {
+	errorOutput := &bytes.Buffer{}
+	application := applicationWithSuccessfulTerminal(errorOutput)
+	application.dependencies.connectCluster = func(context.Context) (kube.Cluster, error) {
+		return &contextNamespaceManager{namespace: "checkout"}, nil
+	}
+	application.dependencies.loadSession = func() (session.SessionState, error) {
+		return session.SessionState{}, session.ErrNoSession
+	}
+	startupNamespace := "unset"
+	application.dependencies.newRootModel = func(namespace string, runtime ui.RuntimeDependencies) (ui.RootModel, error) {
+		startupNamespace = namespace
+		return ui.NewRootModel(namespace, runtime)
+	}
+
+	if exitCode := application.run(nil); exitCode != exitSuccess {
+		t.Fatalf("exit code = %d, want %d: %s", exitCode, exitSuccess, errorOutput.String())
+	}
+	if startupNamespace != "checkout" {
+		t.Fatalf("startup namespace = %q, want kubeconfig context namespace", startupNamespace)
+	}
+}
+
+func TestApplicationPrefersSavedSessionOverKubeconfigNamespace(t *testing.T) {
+	errorOutput := &bytes.Buffer{}
+	application := applicationWithSuccessfulTerminal(errorOutput)
+	application.dependencies.connectCluster = func(context.Context) (kube.Cluster, error) {
+		return &contextNamespaceManager{namespace: "checkout"}, nil
+	}
+	application.dependencies.loadSession = func() (session.SessionState, error) {
+		return session.SessionState{Namespace: ""}, nil
+	}
+	startupNamespace := "unset"
+	application.dependencies.newRootModel = func(namespace string, runtime ui.RuntimeDependencies) (ui.RootModel, error) {
+		startupNamespace = namespace
+		return ui.NewRootModel(namespace, runtime)
+	}
+
+	if exitCode := application.run(nil); exitCode != exitSuccess {
+		t.Fatalf("exit code = %d, want %d: %s", exitCode, exitSuccess, errorOutput.String())
+	}
+	if startupNamespace != "" {
+		t.Fatalf("startup namespace = %q, want saved all-namespaces session", startupNamespace)
+	}
+}
+
+type failingContextManager struct {
+	fakeContextManager
+}
+
+func (*failingContextManager) Contexts(context.Context) ([]kube.ContextInfo, error) {
+	return nil, errors.New("kubeconfig unreadable")
+}
+
+func TestApplicationFallsBackToAllNamespacesWhenContextsUnavailable(t *testing.T) {
+	errorOutput := &bytes.Buffer{}
+	application := applicationWithSuccessfulTerminal(errorOutput)
+	application.dependencies.connectCluster = func(context.Context) (kube.Cluster, error) {
+		return &failingContextManager{}, nil
+	}
+	application.dependencies.loadSession = func() (session.SessionState, error) {
+		return session.SessionState{}, session.ErrNoSession
+	}
+	startupNamespace := "unset"
+	application.dependencies.newRootModel = func(namespace string, runtime ui.RuntimeDependencies) (ui.RootModel, error) {
+		startupNamespace = namespace
+		return ui.NewRootModel(namespace, runtime)
+	}
+
+	if exitCode := application.run(nil); exitCode != exitSuccess {
+		t.Fatalf("exit code = %d, want %d: %s", exitCode, exitSuccess, errorOutput.String())
+	}
+	if startupNamespace != "" {
+		t.Fatalf("startup namespace = %q, want all namespaces", startupNamespace)
+	}
+}
+
 func TestApplicationReturnsFailureWhenTerminalFails(t *testing.T) {
 	errorOutput := &bytes.Buffer{}
 	application := applicationWithSuccessfulTerminal(errorOutput)
@@ -568,11 +657,23 @@ func TestApplicationReportsPortForwardShutdownFailure(t *testing.T) {
 }
 
 func TestResolveStartupNamespace(t *testing.T) {
-	if namespace := resolveStartupNamespace("explicit", "saved"); namespace != "explicit" {
-		t.Fatalf("namespace with override = %q, want %q", namespace, "explicit")
+	tests := []struct {
+		name    string
+		sources startupNamespaceSources
+		want    string
+	}{
+		{name: "override wins", sources: startupNamespaceSources{override: "explicit", session: "saved", sessionSaved: true, contextNamespace: "ctx"}, want: "explicit"},
+		{name: "saved session wins over context", sources: startupNamespaceSources{session: "saved", sessionSaved: true, contextNamespace: "ctx"}, want: "saved"},
+		{name: "saved all-namespaces session is honoured", sources: startupNamespaceSources{sessionSaved: true, contextNamespace: "ctx"}, want: ""},
+		{name: "context namespace when no session", sources: startupNamespaceSources{contextNamespace: "ctx"}, want: "ctx"},
+		{name: "all namespaces when nothing known", sources: startupNamespaceSources{}, want: ""},
 	}
-	if namespace := resolveStartupNamespace("", "saved"); namespace != "saved" {
-		t.Fatalf("namespace without override = %q, want %q", namespace, "saved")
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if namespace := resolveStartupNamespace(test.sources); namespace != test.want {
+				t.Fatalf("namespace = %q, want %q", namespace, test.want)
+			}
+		})
 	}
 }
 

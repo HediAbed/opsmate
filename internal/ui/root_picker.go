@@ -11,7 +11,10 @@ import (
 	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
-func (m RootModel) handleNSPicker(key string) (tea.Model, tea.Cmd) {
+func (m RootModel) handleNSPicker(key string, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.namespaceListDenied {
+		return m.handleTypedNamespaceKey(key, msg)
+	}
 	totalItems := len(m.namespaces) + allNamespacesPickerItemCount
 	switch key {
 	case "esc", "n":
@@ -28,6 +31,9 @@ func (m RootModel) handleNSPicker(key string) (tea.Model, tea.Cmd) {
 }
 
 func (m RootModel) handleNSPickerMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	if m.namespaceListDenied {
+		return m, nil
+	}
 	switch event := msg.(type) {
 	case tea.MouseClickMsg:
 		return m.handleNamespacePickerClick(event)
@@ -126,6 +132,9 @@ func (m *RootModel) selectNamespace(index int) tea.Cmd {
 
 func (m RootModel) renderNSPicker(height int) string {
 	title := theme.Title.Render("SELECT NAMESPACE")
+	if m.namespaceListDenied {
+		return m.renderTypedNamespacePicker(height, title)
+	}
 	if m.nsLoading {
 		return m.renderPickerState(height, title, m.nsSpinner.View()+" Loading...")
 	}

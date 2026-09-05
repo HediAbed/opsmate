@@ -85,12 +85,16 @@ type RootModel struct {
 	crds          crdsscreen.CRDsModel
 	analysisPanel analysispanel.AnalysisPanelModel
 
-	namespaces   []string
-	showNSPicker bool
-	showHelp     bool
-	nsCursor     int
-	nsSpinner    spinner.Model
-	nsLoading    bool
+	namespaces          []string
+	namespaceListDenied bool
+	contextNamespace    string
+	contextsLoaded      bool
+	showNSPicker        bool
+	showHelp            bool
+	nsCursor            int
+	nsSpinner           spinner.Model
+	nsLoading           bool
+	nsInput             textinput.Model
 
 	contexts         []cluster.KubeContext
 	showCtxPicker    bool
@@ -124,6 +128,7 @@ type RootModel struct {
 	ready            bool
 	initialized      bool
 	err              error
+	notice           string
 	saveSessionState sessionStateSaver
 }
 
@@ -151,6 +156,7 @@ func NewRootModel(namespace string, runtime RuntimeDependencies) (RootModel, err
 		crds:             crdsscreen.NewCRDsModel(namespace, commands),
 		analysisPanel:    analysisPanel,
 		nsSpinner:        namespaceSpinner,
+		nsInput:          newRootInput("namespace: ", "type a namespace name"),
 		cmdInput:         newRootInput(":", "pod, deploy, svc, ns <name>, logs <pod>, q"),
 		searchInput:      newRootInput("find: ", "pod/deploy/svc name..."),
 		saveSessionState: session.SaveSession,
@@ -217,6 +223,21 @@ func (m *RootModel) persistSession() {
 }
 
 func (m *RootModel) setError(err error) {
+	if screen.AccessDenied(err) {
+		m.setNotice(screen.AccessNotice(err))
+		return
+	}
 	m.err = err
+	m.resizeChildren()
+}
+
+func (m *RootModel) setNotice(text string) {
+	m.notice = text
+	m.resizeChildren()
+}
+
+func (m *RootModel) dismissFooterMessages() {
+	m.err = nil
+	m.notice = ""
 	m.resizeChildren()
 }

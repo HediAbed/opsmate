@@ -22,6 +22,7 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.nsSpinner.Tick,
 			m.fetchNamespaces(),
 			m.fetchCurrentContext(),
+			m.fetchContexts(),
 		}
 		cmds = append(cmds, m.activateScreen(m.screen)...)
 		return m, tea.Batch(cmds...)
@@ -84,48 +85,22 @@ func (m RootModel) updateRootClusterMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case cluster.NamespacesMsg:
-		m.applyNamespaces(msg)
-		return m, nil
+		return m, m.applyNamespaces(msg)
 
 	case cluster.CurrentContextMsg:
 		m.applyCurrentContext(msg)
 		return m, nil
 
 	case cluster.ContextsMsg:
-		m.applyContexts(msg)
-		return m, nil
+		return m, m.applyContexts(msg)
 	default:
 		return m.updateRootOperationMessage(msg)
 	}
 }
 
-func (m *RootModel) applyNamespaces(msg cluster.NamespacesMsg) {
-	m.nsLoading = false
-	if msg.Err != nil {
-		m.setError(msg.Err)
-		return
-	}
-	m.namespaces = msg.Namespaces
-}
-
 func (m *RootModel) applyCurrentContext(msg cluster.CurrentContextMsg) {
 	if msg.Err == nil {
 		m.currentContext = msg.Name
-	}
-}
-
-func (m *RootModel) applyContexts(msg cluster.ContextsMsg) {
-	m.ctxLoading = false
-	if msg.Err != nil {
-		m.setError(msg.Err)
-		return
-	}
-	m.contexts = msg.Contexts
-	for _, clusterContext := range m.contexts {
-		if clusterContext.Current {
-			m.currentContext = clusterContext.Name
-			return
-		}
 	}
 }
 
@@ -190,8 +165,10 @@ func (m *RootModel) handleContextSwitched(msg cluster.ContextSwitchedMsg) tea.Cm
 	}
 	m.currentContext = msg.Name
 	m.namespaces = nil
-	m.namespace = ""
-	return tea.Batch(m.switchNamespace(), m.fetchNamespaces())
+	m.namespaceListDenied = false
+	m.contextsLoaded = false
+	m.namespace = m.namespaceForContext(msg.Name)
+	return tea.Batch(m.switchNamespace(), m.fetchNamespaces(), m.fetchContexts())
 }
 
 func (m RootModel) updateRootNavigationMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -268,14 +245,13 @@ func (m RootModel) handleSecondaryRootOverlayKey(
 ) (tea.Model, tea.Cmd, bool) {
 	switch {
 	case m.showNSPicker:
-		model, command := m.handleNSPicker(key)
+		model, command := m.handleNSPicker(key, msg)
 		return model, command, true
 	case m.showCtxPicker:
 		model, command := m.handleCtxPicker(key)
 		return model, command, true
-	case m.err != nil && key == "esc":
-		m.err = nil
-		m.resizeChildren()
+	case (m.err != nil || m.notice != "") && key == "esc":
+		m.dismissFooterMessages()
 		return m, nil, true
 	case m.analysisPanel.IsVisible():
 		model, command := m.handleVisibleAnalysisPanelKey(msg, key)
@@ -342,16 +318,6 @@ func (m *RootModel) toggleAnalysisPanel() {
 		m.updateAnalysisScreenContext()
 	}
 	m.resizeChildren()
-}
-
-func (m *RootModel) openNamespacePicker() tea.Cmd {
-	m.showNSPicker = true
-	m.nsCursor = 0
-	if len(m.namespaces) > 0 {
-		return nil
-	}
-	m.nsLoading = true
-	return m.fetchNamespaces()
 }
 
 func (m RootModel) broadcastRootMessage(msg tea.Msg) (tea.Model, tea.Cmd) {

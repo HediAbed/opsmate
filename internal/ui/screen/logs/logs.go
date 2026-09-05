@@ -360,6 +360,10 @@ func (m *LogsModel) applyLogPods(msg cluster.PodsMsg) tea.Cmd {
 
 func (m *LogsModel) applyLogs(msg cluster.LogsMsg) tea.Cmd {
 	m.loading = false
+	if screen.AccessDenied(msg.Err) {
+		m.err = msg.Err
+		return nil
+	}
 	if msg.Err != nil {
 		m.err = msg.Err
 		return doTick()
@@ -390,6 +394,10 @@ func (m *LogsModel) applyLogExplanation(msg analysis.LogExplanationMsg) {
 }
 
 func (m *LogsModel) applyContainers(msg cluster.ContainersMsg) tea.Cmd {
+	if screen.AccessDenied(msg.Err) {
+		m.statusMsg = theme.Notice.Render(screen.AccessNotice(msg.Err))
+		return screen.ClearStatusAfter(logRefreshInterval)
+	}
 	if msg.Err != nil {
 		m.statusMsg = theme.Error.Render("Container list error: " + terminal.SanitizeLine(msg.Err.Error()))
 		return screen.ClearStatusAfter(logRefreshInterval)

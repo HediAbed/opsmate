@@ -6,10 +6,12 @@ import (
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
 	"github.com/HediAbed/opsmate/internal/analysis"
 	"github.com/HediAbed/opsmate/internal/cluster"
 	"github.com/HediAbed/opsmate/internal/terminal"
 	"github.com/HediAbed/opsmate/internal/ui/component"
+	"github.com/HediAbed/opsmate/internal/ui/screen"
 	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
@@ -34,7 +36,7 @@ func (m BrowserModel) updateBrowserInputMessage(msg tea.Msg) (BrowserModel, tea.
 func (m *BrowserModel) handleDescribeResult(msg cluster.DescribeMsg) {
 	m.loading = false
 	if msg.Err != nil {
-		m.errBanner = operationErrorText("describe", msg.Err)
+		m.reportOperationError("describe", msg.Err)
 		return
 	}
 	output := terminal.SanitizeText(msg.Output)
@@ -56,7 +58,7 @@ func (m *BrowserModel) handleDescribeSummaryResult(msg analysis.DescribeSummaryM
 func (m *BrowserModel) handleEventsResult(msg cluster.EventsMsg) {
 	m.loading = false
 	if msg.Err != nil {
-		m.errBanner = operationErrorText("events", msg.Err)
+		m.reportOperationError("events", msg.Err)
 		return
 	}
 	content := formatEventsOutput(msg.Events)
@@ -71,7 +73,7 @@ func (m *BrowserModel) handleEventsResult(msg cluster.EventsMsg) {
 func (m *BrowserModel) handleYAMLResult(msg cluster.YAMLMsg) {
 	m.loading = false
 	if msg.Err != nil {
-		m.errBanner = operationErrorText("yaml", msg.Err)
+		m.reportOperationError("yaml", msg.Err)
 		return
 	}
 	output := terminal.SanitizeText(msg.Output)
@@ -102,6 +104,10 @@ func (m *BrowserModel) handleBrowserCommandResult(msg cluster.MutationResultMsg)
 	m.loading = false
 	m.showConfirm = false
 	m.state = stateBrowsing
+	if screen.AccessDenied(msg.Err) {
+		m.statusMsg = accessNoticeStatus(msg.Err)
+		return nil
+	}
 	if msg.Err != nil {
 		m.statusMsg = theme.Error.Render("Command failed: " + terminal.SanitizeLine(msg.Err.Error()))
 		return nil

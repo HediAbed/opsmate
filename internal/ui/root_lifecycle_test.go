@@ -304,19 +304,19 @@ func TestRootModel_HandleNSPicker_NavigatesAndSelects(t *testing.T) {
 	m.namespaces = []string{"default", "kube-system"}
 	m.nsCursor = 0
 
-	model, _ := m.handleNSPicker("down")
+	model, _ := m.handleNSPicker("down", tea.KeyPressMsg{Code: tea.KeyDown})
 	r := model.(RootModel)
 	if r.nsCursor != 1 {
 		t.Errorf("down should increment cursor; got %d", r.nsCursor)
 	}
 
-	model, _ = r.handleNSPicker("up")
+	model, _ = r.handleNSPicker("up", tea.KeyPressMsg{Code: tea.KeyUp})
 	r = model.(RootModel)
 	if r.nsCursor != 0 {
 		t.Error("up should decrement cursor")
 	}
 
-	model, _ = r.handleNSPicker("esc")
+	model, _ = r.handleNSPicker("esc", tea.KeyPressMsg{Code: tea.KeyEscape})
 	r = model.(RootModel)
 	if r.showNSPicker {
 		t.Error("esc should close picker")

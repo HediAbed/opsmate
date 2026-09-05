@@ -6,6 +6,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+
 	"github.com/HediAbed/opsmate/internal/cluster"
 	"github.com/HediAbed/opsmate/internal/ui/screen"
 )
@@ -35,6 +36,7 @@ func (m *DashboardModel) stopDashboardLiveSets() {
 }
 
 func (m *DashboardModel) startDashboardLiveSets() []tea.Cmd {
+	m.resetDashboardLiveErrors()
 	commands := make([]tea.Cmd, 0, dashboardLiveSetCount)
 	if command := m.startDashboardPodLiveSet(); command != nil {
 		commands = append(commands, command)
@@ -80,24 +82,54 @@ func (m *DashboardModel) startDashboardEventLiveSet() tea.Cmd {
 }
 
 func (m *DashboardModel) syncDashboardLiveError() {
-	m.err = errors.Join(m.podLiveError, m.deploymentLiveError, m.eventLiveError)
+	m.err = errors.Join(
+		reportableLiveError(m.podLiveError),
+		reportableLiveError(m.deploymentLiveError),
+		reportableLiveError(m.eventLiveError),
+	)
+}
+
+func reportableLiveError(err error) error {
+	if screen.AccessDenied(err) {
+		return nil
+	}
+	return err
+}
+
+func (m *DashboardModel) resetDashboardLiveErrors() {
+	m.podLiveError = nil
+	m.deploymentLiveError = nil
+	m.eventLiveError = nil
+	m.syncDashboardLiveError()
+}
+
+func (m DashboardModel) podsDenied() bool {
+	return screen.AccessDenied(m.podLiveError)
+}
+
+func (m DashboardModel) deploymentsDenied() bool {
+	return screen.AccessDenied(m.deploymentLiveError)
+}
+
+func (m DashboardModel) eventsDenied() bool {
+	return screen.AccessDenied(m.eventLiveError)
 }
 
 func (m DashboardModel) handleSupervisedLiveMessage(message screen.LiveMessage) (DashboardModel, tea.Cmd) {
 	switch {
 	case m.podLive.Owns(message):
 		if message.Closed {
-			return m.handleDashboardLiveSetClosed(dashboardPods)
+			return m.handleDashboardLiveSetClosed(dashboardPods, screen.LiveStopError(message))
 		}
 		return m.handlePodLivePayload(message.Payload)
 	case m.deploymentLive.Owns(message):
 		if message.Closed {
-			return m.handleDashboardLiveSetClosed(dashboardDeployments)
+			return m.handleDashboardLiveSetClosed(dashboardDeployments, screen.LiveStopError(message))
 		}
 		return m.handleDeploymentLivePayload(message.Payload)
 	case m.eventLive.Owns(message):
 		if message.Closed {
-			return m.handleDashboardLiveSetClosed(dashboardEvents)
+			return m.handleDashboardLiveSetClosed(dashboardEvents, screen.LiveStopError(message))
 		}
 		return m.handleEventLivePayload(message.Payload)
 	default:
@@ -162,18 +194,18 @@ func (m DashboardModel) handleEventLivePayload(payload tea.Msg) (DashboardModel,
 	return m, m.eventLive.Pull()
 }
 
-func (m DashboardModel) handleDashboardLiveSetClosed(kind dashboardDataKind) (DashboardModel, tea.Cmd) {
+func (m DashboardModel) handleDashboardLiveSetClosed(kind dashboardDataKind, stopErr error) (DashboardModel, tea.Cmd) {
 	switch kind {
 	case dashboardPods:
 		m.podLive.Stop()
-		m.podLiveError = screen.ErrLiveUpdatesStopped
+		m.podLiveError = stopErr
 		m.loading = false
 	case dashboardDeployments:
 		m.deploymentLive.Stop()
-		m.deploymentLiveError = screen.ErrLiveUpdatesStopped
+		m.deploymentLiveError = stopErr
 	case dashboardEvents:
 		m.eventLive.Stop()
-		m.eventLiveError = screen.ErrLiveUpdatesStopped
+		m.eventLiveError = stopErr
 	case dashboardMetrics, dashboardDataKindCount:
 		return m, nil
 	}

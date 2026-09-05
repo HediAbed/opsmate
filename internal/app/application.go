@@ -121,7 +121,7 @@ func (a application) prepareInteractive(runtimeContext context.Context, namespac
 	if err != nil {
 		return nil, ui.RootModel{}, &interactiveFailure{message: "create cluster snapshot collector", err: err}
 	}
-	savedSession, namespace, err := a.loadStartupState(namespaceOverride)
+	savedSession, namespace, err := a.loadStartupState(runtimeContext, cluster, namespaceOverride)
 	if err != nil {
 		return nil, ui.RootModel{}, &interactiveFailure{message: "load session state", err: err}
 	}
@@ -188,23 +188,46 @@ func stopClusterPortForwards(ctx context.Context, manager kube.PortForwardManage
 	return manager.StopAllPortForwards(ctx)
 }
 
-func (a application) loadSession() (session.SessionState, error) {
+func (a application) loadSession() (session.SessionState, bool, error) {
 	savedSession, err := a.dependencies.loadSession()
 	if err == nil {
-		return savedSession, nil
+		return savedSession, true, nil
 	}
 	if errors.Is(err, session.ErrNoSession) {
-		return session.SessionState{}, nil
+		return session.SessionState{}, false, nil
 	}
-	return session.SessionState{}, err
+	return session.SessionState{}, false, err
 }
 
-func (a application) loadStartupState(namespaceOverride string) (session.SessionState, string, error) {
-	savedSession, err := a.loadSession()
+func (a application) loadStartupState(
+	runtimeContext context.Context,
+	contexts kube.ContextManager,
+	namespaceOverride string,
+) (session.SessionState, string, error) {
+	savedSession, saved, err := a.loadSession()
 	if err != nil {
 		return session.SessionState{}, "", err
 	}
-	return savedSession, resolveStartupNamespace(namespaceOverride, savedSession.Namespace), nil
+	startup := startupNamespaceSources{
+		override:         namespaceOverride,
+		session:          savedSession.Namespace,
+		sessionSaved:     saved,
+		contextNamespace: currentContextNamespace(runtimeContext, contexts),
+	}
+	return savedSession, resolveStartupNamespace(startup), nil
+}
+
+func currentContextNamespace(ctx context.Context, contexts kube.ContextManager) string {
+	available, err := contexts.Contexts(ctx)
+	if err != nil {
+		return ""
+	}
+	for _, candidate := range available {
+		if candidate.Current {
+			return candidate.Namespace
+		}
+	}
+	return ""
 }
 
 func (a application) writeOutput(content string) int {
@@ -215,11 +238,21 @@ func (a application) writeOutput(content string) int {
 	return exitSuccess
 }
 
-func resolveStartupNamespace(namespaceOverride, sessionNamespace string) string {
-	if namespaceOverride != "" {
-		return namespaceOverride
+type startupNamespaceSources struct {
+	override         string
+	session          string
+	sessionSaved     bool
+	contextNamespace string
+}
+
+func resolveStartupNamespace(sources startupNamespaceSources) string {
+	if sources.override != "" {
+		return sources.override
 	}
-	return sessionNamespace
+	if sources.sessionSaved {
+		return sources.session
+	}
+	return sources.contextNamespace
 }
 
 func rootFromFinalModel(finalModel tea.Model) (ui.RootModel, error) {

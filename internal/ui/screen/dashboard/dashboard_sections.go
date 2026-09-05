@@ -12,6 +12,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/HediAbed/opsmate/internal/cluster"
 	"github.com/HediAbed/opsmate/internal/terminal"
+	"github.com/HediAbed/opsmate/internal/ui/screen"
 	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
@@ -249,18 +250,25 @@ func (m DashboardModel) renderPodTable(innerW int) string {
 		return style.Render(centered)
 	}
 	if !m.loading && len(m.pods) == 0 {
-		ns := m.namespace
-		if ns == "" {
-			ns = "all namespaces"
-		}
-		hint := theme.Dim.Render("No pods in "+ns+".") + "\n\n" +
-			theme.HelpKey.Render("[n]") + theme.HelpDesc.Render(" namespace  ") +
-			theme.HelpKey.Render("[k]") + theme.HelpDesc.Render(" context  ") +
-			theme.HelpKey.Render("[:]") + theme.HelpDesc.Render(" command palette")
-		centered := lipgloss.Place(innerW, m.podTable.Height(), lipgloss.Center, lipgloss.Center, hint)
+		centered := lipgloss.Place(innerW, m.podTable.Height(), lipgloss.Center, lipgloss.Center, m.renderEmptyPodHint())
 		return style.Render(centered)
 	}
 	return style.Render(m.podTable.View())
+}
+
+func (m DashboardModel) renderEmptyPodHint() string {
+	ns := m.namespace
+	if ns == "" {
+		ns = "all namespaces"
+	}
+	headline := theme.Dim.Render("No pods in " + ns + ".")
+	if m.podsDenied() {
+		headline = theme.Notice.Render(screen.AccessNotice(m.podLiveError))
+	}
+	return headline + "\n\n" +
+		theme.HelpKey.Render("[n]") + theme.HelpDesc.Render(" namespace  ") +
+		theme.HelpKey.Render("[k]") + theme.HelpDesc.Render(" context  ") +
+		theme.HelpKey.Render("[:]") + theme.HelpDesc.Render(" command palette")
 }
 
 func (m DashboardModel) renderEvents(innerW int) string {

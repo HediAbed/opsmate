@@ -31,7 +31,7 @@ func (m *RootModel) resizeChildren() {
 	if m.width <= 0 || m.height <= 0 {
 		return
 	}
-	contentHeight := m.height - lipgloss.Height(m.renderStatusBar()) - lipgloss.Height(m.renderRootError())
+	contentHeight := m.height - lipgloss.Height(m.renderRootFooter())
 	contentHeight = max(rootMinimumContentHeight, contentHeight)
 	mainWidth := m.rootMainWidth()
 	m.resizePrimaryScreens(mainWidth, contentHeight)
@@ -58,6 +58,7 @@ func (m *RootModel) resizeRootInputs() {
 	availableWidth := max(rootInputMinimumWidth, m.width-rootInputHorizontalMargin)
 	m.cmdInput.SetWidth(availableWidth)
 	m.searchInput.SetWidth(min(rootSearchInputMaximumWidth, availableWidth))
+	m.nsInput.SetWidth(min(rootSearchInputMaximumWidth, availableWidth))
 }
 
 func (m *RootModel) resizeAnalysisPanel(mainWidth, contentHeight int) {

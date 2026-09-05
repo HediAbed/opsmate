@@ -17,6 +17,7 @@ const (
 	rootInputMinimumWidth         = 10
 	rootInputHorizontalMargin     = 10
 	rootSearchInputMaximumWidth   = 50
+	rootFooterMessageCapacity     = 2
 
 	helpModalDesiredWidth        = 60
 	searchModalDesiredWidth      = 64

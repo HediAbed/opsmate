@@ -22,7 +22,7 @@ make build
 
 ## Run
 
-Open the namespace saved from your last session, or all namespaces on the first run:
+Open the namespace saved from your last session. On the first run OpsMate uses the namespace of your current kubeconfig context, or all namespaces when the context sets none:
 
 ```sh
 opsmate
@@ -41,6 +41,8 @@ When you build from source, run `./opsmate` instead. Run `opsmate --help` to see
 - Send the current screen context to an optional analysis endpoint.
 
 CPU and memory values require the Kubernetes Metrics API. The Helm view requires permission to read Helm release Secrets.
+
+OpsMate works with namespace-scoped accounts. Anything your account cannot read or change shows a short "Not permitted" notice in place of the data instead of an error. If the account cannot list namespaces, OpsMate stays inside the kubeconfig context namespace and the namespace picker accepts a typed namespace name.
 
 ## Optional analysis
 

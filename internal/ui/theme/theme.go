@@ -142,6 +142,14 @@ var ErrorBanner = lipgloss.NewStyle().
 	Bold(true).
 	Padding(0, 1)
 
+var Notice = lipgloss.NewStyle().
+	Foreground(Yellow)
+
+var NoticeBanner = lipgloss.NewStyle().
+	Background(LogWarnBg).
+	Foreground(Yellow).
+	Padding(0, 1)
+
 var Banner = lipgloss.NewStyle().
 	Foreground(HotPink).
 	Bold(true)

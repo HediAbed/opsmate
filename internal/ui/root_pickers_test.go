@@ -12,7 +12,7 @@ func TestRootHandleNSPicker_EnterFirstSelectsAllNamespaces(t *testing.T) {
 	m.showNSPicker = true
 	m.namespaces = []string{"default", "kube-system"}
 	m.nsCursor = 0
-	model, _ := m.handleNSPicker("enter")
+	model, _ := m.handleNSPicker("enter", tea.KeyPressMsg{Code: tea.KeyEnter})
 	r := model.(RootModel)
 	if r.showNSPicker {
 		t.Error("enter should close picker")
@@ -27,7 +27,7 @@ func TestRootHandleNSPicker_EnterSpecificNamespace(t *testing.T) {
 	m.showNSPicker = true
 	m.namespaces = []string{"default", "kube-system"}
 	m.nsCursor = 2
-	model, _ := m.handleNSPicker("enter")
+	model, _ := m.handleNSPicker("enter", tea.KeyPressMsg{Code: tea.KeyEnter})
 	r := model.(RootModel)
 	if r.namespace != "kube-system" {
 		t.Errorf("cursor 2 should select kube-system; got %q", r.namespace)
@@ -40,13 +40,13 @@ func TestRootHandleNSPicker_KAndJVimNavigation(t *testing.T) {
 	m.namespaces = []string{"default", "ns2", "ns3"}
 	m.nsCursor = 1
 
-	model, _ := m.handleNSPicker("k")
+	model, _ := m.handleNSPicker("k", tea.KeyPressMsg{Code: 'k', Text: "k"})
 	if model.(RootModel).nsCursor != 0 {
 		t.Error("k (vim up) should retract cursor")
 	}
 
 	m.nsCursor = 0
-	model, _ = m.handleNSPicker("j")
+	model, _ = m.handleNSPicker("j", tea.KeyPressMsg{Code: 'j', Text: "j"})
 	if model.(RootModel).nsCursor != 1 {
 		t.Error("j (vim down) should advance cursor")
 	}

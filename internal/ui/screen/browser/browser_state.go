@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+
 	"github.com/HediAbed/opsmate/internal/analysis"
 	clustermodel "github.com/HediAbed/opsmate/internal/cluster"
 	"github.com/HediAbed/opsmate/internal/kube"
@@ -336,6 +337,10 @@ func (m BrowserModel) selectedBatchIdentity(fallbackKind string) (resourceIdenti
 
 func (m *BrowserModel) showOperationSetupError(err error) {
 	m.loading = false
+	if screen.AccessDenied(err) {
+		m.statusMsg = accessNoticeStatus(err)
+		return
+	}
 	m.statusMsg = theme.Error.Render(terminal.SanitizeLine(err.Error()))
 }
 

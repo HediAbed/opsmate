@@ -92,7 +92,7 @@ func (m *DashboardModel) SetNamespace(namespace string) tea.Cmd {
 	m.events = nil
 	m.metrics = nil
 	m.loading = true
-	m.err = nil
+	m.resetDashboardLiveErrors()
 	m.healthRequestID++
 	m.healthAnalysisLoading = false
 	m.healthAnalysisSummary = ""

@@ -12,7 +12,8 @@ const usageText = `Usage: opsmate [namespace]
        opsmate --help
        opsmate --version
 
-With no namespace, OpsMate restores the saved namespace or uses all namespaces.
+With no namespace, OpsMate restores the saved namespace, then the kubeconfig
+context namespace, then all namespaces.
 `
 
 type command interface {

@@ -175,7 +175,7 @@ func TestDashboardIgnoresUnownedAndNonLiveMessages(t *testing.T) {
 		t.Fatalf("unowned message changed dashboard state: command=%v error=%v", command != nil, model.err)
 	}
 	for _, kind := range []dashboardDataKind{dashboardMetrics, dashboardDataKindCount} {
-		updated, next := model.handleDashboardLiveSetClosed(kind)
+		updated, next := model.handleDashboardLiveSetClosed(kind, screen.ErrLiveUpdatesStopped)
 		if next != nil || !errors.Is(updated.err, screen.ErrLiveUpdatesStopped) {
 			t.Fatalf("non-live kind %d changed dashboard state", kind)
 		}

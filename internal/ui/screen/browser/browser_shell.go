@@ -78,7 +78,7 @@ func (m BrowserModel) openShell() (BrowserModel, tea.Cmd) {
 		Pod: kube.PodReference{Namespace: identity.Namespace, Name: identity.Name},
 	})
 	if err != nil {
-		m.errBanner = operationErrorText("shell", err)
+		m.reportOperationError("shell", err)
 		return m, nil
 	}
 
@@ -265,7 +265,7 @@ func (m BrowserModel) handleShellExit(msg shellExitMsg) (BrowserModel, tea.Cmd) 
 		return m, nil
 	}
 	if msg.Err != nil {
-		m.errBanner = operationErrorText("shell", msg.Err)
+		m.reportOperationError("shell", msg.Err)
 	} else {
 		m.statusMsg = theme.Dim.Render("shell session ended")
 	}

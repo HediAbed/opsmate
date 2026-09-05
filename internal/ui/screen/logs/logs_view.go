@@ -5,8 +5,10 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+
 	"github.com/HediAbed/opsmate/internal/terminal"
 	"github.com/HediAbed/opsmate/internal/ui/component"
+	"github.com/HediAbed/opsmate/internal/ui/screen"
 	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
@@ -80,6 +82,9 @@ func (m LogsModel) renderOptionalExplainPanel() string {
 func (m LogsModel) renderLogError() string {
 	if m.err == nil {
 		return ""
+	}
+	if screen.AccessDenied(m.err) {
+		return theme.Notice.Render(screen.AccessNotice(m.err))
 	}
 	message := terminal.SanitizeLine(m.err.Error())
 	return theme.Error.Render("Error: " + message + "; press r to retry")

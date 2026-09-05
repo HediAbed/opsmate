@@ -5,9 +5,11 @@ import (
 
 	"charm.land/bubbles/v2/table"
 	"charm.land/lipgloss/v2"
+
 	clustermodel "github.com/HediAbed/opsmate/internal/cluster"
 	"github.com/HediAbed/opsmate/internal/terminal"
 	"github.com/HediAbed/opsmate/internal/ui/component"
+	"github.com/HediAbed/opsmate/internal/ui/screen"
 	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
@@ -75,6 +77,9 @@ func (m CRDsModel) renderHelpBar() string {
 func (m CRDsModel) renderErrBanner() string {
 	if m.err == nil {
 		return ""
+	}
+	if screen.AccessDenied(m.err) {
+		return theme.NoticeBanner.Width(m.width).MaxWidth(m.width).Render(screen.AccessNotice(m.err))
 	}
 	return theme.ErrorBanner.Width(m.width).MaxWidth(m.width).Render(" " + terminal.SanitizeLine(m.err.Error()) + " ")
 }

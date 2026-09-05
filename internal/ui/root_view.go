@@ -44,11 +44,22 @@ func (m RootModel) renderContent() string {
 
 func (m RootModel) renderRootFooter() string {
 	statusBar := m.renderStatusBar()
-	errorBar := m.renderRootError()
-	if errorBar == "" {
+	messageBar := m.renderRootMessages()
+	if messageBar == "" {
 		return statusBar
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, errorBar, statusBar)
+	return lipgloss.JoinVertical(lipgloss.Left, messageBar, statusBar)
+}
+
+func (m RootModel) renderRootMessages() string {
+	bars := make([]string, 0, rootFooterMessageCapacity)
+	if notice := m.renderRootNotice(); notice != "" {
+		bars = append(bars, notice)
+	}
+	if errorBar := m.renderRootError(); errorBar != "" {
+		bars = append(bars, errorBar)
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, bars...)
 }
 
 func (m RootModel) renderCommandPalette() string {
@@ -342,13 +353,7 @@ func (m RootModel) handleStatusBarClick(column int) (tea.Model, tea.Cmd) {
 	namespaceEnd := breadcrumbStart + lipgloss.Width(namespaceLabel)
 
 	if column >= breadcrumbStart && column < namespaceEnd {
-		m.showNSPicker = true
-		m.nsCursor = 0
-		if len(m.namespaces) == 0 {
-			m.nsLoading = true
-			return m, m.fetchNamespaces()
-		}
-		return m, nil
+		return m, m.openNamespacePicker()
 	}
 
 	return m, nil
