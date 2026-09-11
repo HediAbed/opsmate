@@ -10,7 +10,7 @@ require (
 	github.com/alecthomas/chroma/v2 v2.27.0
 	github.com/charmbracelet/x/ansi v0.11.8
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
-	golang.org/x/sync v0.22.0
+	golang.org/x/sync v0.23.0
 	helm.sh/helm/v4 v4.2.4
 	k8s.io/api v0.37.0
 	k8s.io/apiextensions-apiserver v0.37.0
