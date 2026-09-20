@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+
 	"github.com/HediAbed/opsmate/internal/cluster"
 	screenmodel "github.com/HediAbed/opsmate/internal/ui/screen"
 )

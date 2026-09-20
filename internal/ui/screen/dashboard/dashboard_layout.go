@@ -4,9 +4,8 @@ import (
 	"strconv"
 
 	"charm.land/bubbles/v2/table"
-	"charm.land/lipgloss/v2"
+
 	"github.com/HediAbed/opsmate/internal/ui/component"
-	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
 
 func (m *DashboardModel) recalcLayout() {
@@ -37,15 +36,6 @@ func dashPodColumns(innerW int) []table.Column {
 		{Title: "CPU", Width: cpuW},
 		{Title: "MEM", Width: memW},
 	}
-}
-
-func dashTableStyles() table.Styles {
-	styles := table.DefaultStyles()
-	styles.Header = styles.Header.Bold(true).Foreground(theme.NeonCyan).
-		BorderStyle(lipgloss.NormalBorder()).BorderForeground(theme.DimText).BorderBottom(true)
-	styles.Selected = styles.Selected.Foreground(theme.White).Background(theme.DeepViolet).Bold(true)
-	styles.Cell = styles.Cell.Foreground(theme.LightText)
-	return styles
 }
 
 func (m *DashboardModel) rebuildTableRows() {

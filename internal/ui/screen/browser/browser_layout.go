@@ -5,6 +5,7 @@ import (
 
 	"charm.land/bubbles/v2/table"
 	"charm.land/lipgloss/v2"
+
 	"github.com/HediAbed/opsmate/internal/ui/component"
 	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
@@ -93,7 +94,7 @@ func (m *BrowserModel) rebuildDetailContent() {
 		parts = append(parts, "")
 	} else if m.analysisSummary != "" {
 		header := theme.AnalysisAccent.Render("ANALYSIS ") + theme.Accent.Render("SUMMARY")
-		summary := lipgloss.NewStyle().Foreground(theme.LightText).Render(m.analysisSummary)
+		summary := m.analysisSummary
 		border := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).BorderForeground(theme.ElectricPurp).
 			Padding(0, 1).Render(header + "\n" + summary)

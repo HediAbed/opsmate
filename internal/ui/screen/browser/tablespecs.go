@@ -2,6 +2,7 @@ package browser
 
 import (
 	"charm.land/bubbles/v2/table"
+
 	"github.com/HediAbed/opsmate/internal/ui/component"
 )
 

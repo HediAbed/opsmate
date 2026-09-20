@@ -6,6 +6,7 @@ import (
 
 	"charm.land/glamour/v2"
 	"charm.land/lipgloss/v2"
+
 	"github.com/HediAbed/opsmate/internal/terminal"
 	"github.com/HediAbed/opsmate/internal/ui/component"
 	"github.com/HediAbed/opsmate/internal/ui/theme"

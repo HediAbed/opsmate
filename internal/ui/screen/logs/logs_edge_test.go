@@ -9,6 +9,7 @@ import (
 
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
+
 	"github.com/HediAbed/opsmate/internal/cluster"
 )
 

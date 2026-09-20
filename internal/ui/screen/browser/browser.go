@@ -22,11 +22,8 @@ import (
 var allResourceTypes = []string{resourceTypePods, resourceTypeDeployments, resourceTypeServices, resourceTypeStatefulSets, resourceTypeDaemonSets, resourceTypeConfigMaps, resourceTypeNodes, resourceTypeJobs, resourceTypeIngresses, resourceTypeNetworkPolicies, resourceTypePVCs, resourceTypeCronJobs, resourceTypeHPAs, resourceTypeSecrets, resourceTypeReplicaSets, resourceTypeRBAC}
 
 var (
-	browserHelpBarStyle = lipgloss.NewStyle().
-				Background(theme.DarkerBg).
-				Foreground(theme.NeonCyan).
-				Padding(0, 1)
-	browserHelpBarText = buildBrowserHelpBarText()
+	browserHelpBarStyle = theme.Bar
+	browserHelpBarText  = buildBrowserHelpBarText()
 )
 
 func buildBrowserHelpBarText() string {

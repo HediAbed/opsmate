@@ -120,11 +120,9 @@ func (m LogsModel) renderTitleBar() string {
 	indicators := m.renderLogTitleIndicators()
 	titleLeft := lipgloss.JoinHorizontal(lipgloss.Center, titleText, "  ", podLabel)
 	titleRight := strings.Join(indicators, "  ")
-	titleBarStyle := lipgloss.NewStyle().
+	titleBarStyle := theme.Bar.
 		Width(m.width).
-		MaxWidth(m.width).
-		Background(theme.DarkerBg).
-		Padding(0, 1)
+		MaxWidth(m.width)
 	gap := max(1, m.width-lipgloss.Width(titleLeft)-lipgloss.Width(titleRight)-logsPanelGutter)
 	return titleBarStyle.Render(titleLeft + strings.Repeat(" ", gap) + titleRight)
 }
@@ -210,33 +208,27 @@ func (m LogsModel) renderHelpBar() string {
 			theme.HelpKey.Render("c/C") + theme.HelpDesc.Render(": copy"),
 		}
 	}
-	return lipgloss.NewStyle().
+	return theme.Bar.
 		Width(m.width).
 		MaxWidth(m.width).
-		Background(theme.DarkerBg).
-		Foreground(theme.DimText).
-		Padding(0, 1).
+		Foreground(theme.MutedText).
 		Render(strings.Join(helpParts, "  |  "))
 }
 
 func (m LogsModel) renderFilterBar() string {
 	if m.filterInput.Focused() {
 		filterPrompt := theme.Accent.Render("Filter: ")
-		return lipgloss.NewStyle().
+		return theme.Bar.
 			Width(m.width).
 			MaxWidth(m.width).
-			Background(theme.DarkerBg).
-			Padding(0, 1).
 			Render(filterPrompt + m.filterInput.View())
 	}
 	if m.filter != "" {
 		filterPrompt := theme.Accent.Render("Filter: ")
 		filterValue := theme.Subtitle.Render(m.filter)
 		matchInfo := theme.Dim.Render(fmt.Sprintf(" (%d/%d)", len(m.filteredLines), len(m.allLines)))
-		return lipgloss.NewStyle().
+		return theme.Bar.
 			Width(m.width).
-			Background(theme.DarkerBg).
-			Padding(0, 1).
 			Render(filterPrompt + filterValue + matchInfo)
 	}
 	return ""
@@ -250,7 +242,7 @@ func (m LogsModel) renderExplainPanel() string {
 		content = theme.Error.Render("Analysis error: " + terminal.SanitizeLine(m.lineExplanationErr.Error()))
 	} else if m.lineExplanation != "" {
 		content = theme.LogGutterError.Render("ANALYSIS ") + theme.Subtitle.Render("Explanation") + "\n" +
-			lipgloss.NewStyle().Foreground(theme.LightText).Render(m.lineExplanation)
+			m.lineExplanation
 	} else {
 		content = theme.Dim.Render("Press ") + theme.HelpKey.Render("enter") + theme.Dim.Render(" on a line to request an explanation")
 	}

@@ -103,7 +103,7 @@ func (m BrowserModel) renderTitleBar() string {
 	gap := max(1, m.width-lipgloss.Width(left)-lipgloss.Width(rightLabel)-titleBarSidePadding)
 	bar := left + strings.Repeat(" ", gap) + rightLabel
 
-	return lipgloss.NewStyle().MaxWidth(m.width).Background(theme.DarkerBg).Render(bar)
+	return lipgloss.NewStyle().MaxWidth(m.width).Render(bar)
 }
 
 func renderBrowserTabStrip(active string, maxWidth int) string {
@@ -366,10 +366,8 @@ func (m BrowserModel) renderFilterBar() string {
 		matchCount := len(m.resourceTable.Rows())
 		filterPrompt := theme.Accent.Render("Filter: ")
 		matchInfo := theme.Dim.Render(fmt.Sprintf(" (%d matching)", matchCount))
-		return lipgloss.NewStyle().
+		return theme.Bar.
 			Width(m.width).
-			Background(theme.DarkerBg).
-			Padding(0, 1).
 			Render(filterPrompt + m.filterInput.View() + matchInfo)
 	}
 	if m.filterActive && m.filterText != "" {
@@ -377,10 +375,8 @@ func (m BrowserModel) renderFilterBar() string {
 		badge := theme.FilterBadge.Render(fmt.Sprintf("FILTER: %s", m.filterText))
 		matchInfo := theme.Dim.Render(fmt.Sprintf(" (%d matching)", matchCount))
 		clearHint := "  " + theme.HelpKey.Render("/") + theme.HelpDesc.Render(": edit  ")
-		return lipgloss.NewStyle().
+		return theme.Bar.
 			Width(m.width).
-			Background(theme.DarkerBg).
-			Padding(0, 1).
 			Render(badge + matchInfo + clearHint)
 	}
 	return ""

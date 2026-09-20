@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
+
 	"github.com/HediAbed/opsmate/internal/cluster"
 	"github.com/HediAbed/opsmate/internal/ui/screen"
 )

@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	tea "charm.land/bubbletea/v2"
+
 	"github.com/HediAbed/opsmate/internal/analysis"
 	"github.com/HediAbed/opsmate/internal/cluster"
 	"github.com/HediAbed/opsmate/internal/ui/screen"

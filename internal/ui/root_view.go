@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
 	"github.com/HediAbed/opsmate/internal/terminal"
 	"github.com/HediAbed/opsmate/internal/ui/component"
 	"github.com/HediAbed/opsmate/internal/ui/theme"
@@ -66,9 +67,8 @@ func (m RootModel) renderCommandPalette() string {
 	if !m.showCmdPalette {
 		return ""
 	}
-	return lipgloss.NewStyle().
+	return theme.Bar.
 		Width(m.width).
-		Background(theme.DarkerBg).
 		Padding(0, rootHorizontalPadding).
 		Render(m.cmdInput.View())
 }
@@ -163,14 +163,11 @@ func (m RootModel) renderStatusBar() string {
 	right := m.renderStatusHints()
 	gap := max(0, m.width-lipgloss.Width(left)-lipgloss.Width(middle)-lipgloss.Width(right))
 	filler := lipgloss.NewStyle().
-		Background(theme.DarkerBg).
-		Foreground(theme.NeonCyan).
 		Width(gap).
 		Render("")
 
 	return lipgloss.NewStyle().
 		Width(m.width).
-		Background(theme.DarkerBg).
 		Render(left + middle + filler + right)
 }
 

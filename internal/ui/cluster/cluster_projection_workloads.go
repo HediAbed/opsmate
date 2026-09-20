@@ -6,10 +6,11 @@ import (
 	"strings"
 	"time"
 
-	model "github.com/HediAbed/opsmate/internal/cluster"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+
+	model "github.com/HediAbed/opsmate/internal/cluster"
 )
 
 func projectStatefulSets(items []appsv1.StatefulSet, now time.Time) []model.StatefulSet {

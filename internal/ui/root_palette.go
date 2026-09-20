@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+
 	"github.com/HediAbed/opsmate/internal/failure"
 	"github.com/HediAbed/opsmate/internal/kube"
 	browserscreen "github.com/HediAbed/opsmate/internal/ui/screen/browser"

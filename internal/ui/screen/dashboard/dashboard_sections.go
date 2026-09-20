@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+
 	"github.com/HediAbed/opsmate/internal/cluster"
 	"github.com/HediAbed/opsmate/internal/terminal"
 	"github.com/HediAbed/opsmate/internal/ui/screen"
@@ -109,12 +110,6 @@ func renderBar(pct float64, width int, fillColor, emptyColor color.Color) string
 
 	fillStyle := lipgloss.NewStyle().Foreground(fillColor)
 	emptyStyle := lipgloss.NewStyle().Foreground(emptyColor)
-
-	if pct > dashboardCriticalUsageThreshold {
-		fillStyle = barFillCritical
-	} else if pct > dashboardWarningUsageThreshold {
-		fillStyle = barFillWarning
-	}
 
 	return fillStyle.Render(strings.Repeat("█", filled)) +
 		emptyStyle.Render(strings.Repeat("░", empty))
@@ -317,7 +312,7 @@ func (m DashboardModel) renderHealthAnalysis(innerW int) string {
 	} else if m.healthAnalysisErr != nil {
 		content = theme.Error.Render(dashboardAnalysisErrorText(m.healthAnalysisErr))
 	} else if m.healthAnalysisSummary != "" {
-		content = lipgloss.NewStyle().Foreground(theme.LightText).Render(m.healthAnalysisSummary)
+		content = m.healthAnalysisSummary
 	} else {
 		content = theme.Dim.Render("No analysis available yet.")
 	}
@@ -341,5 +336,5 @@ func (DashboardModel) renderHelpLine(width int) string {
 		parts = append(parts, theme.HelpKey.Render(binding.key)+theme.HelpDesc.Render(":"+binding.desc))
 	}
 	helpText := strings.Join(parts, theme.Dim.Render(" │ "))
-	return lipgloss.NewStyle().Background(theme.DarkerBg).Foreground(theme.NeonCyan).Padding(0, 1).Width(width).Render(helpText)
+	return theme.Bar.Foreground(theme.NeonCyan).Width(width).Render(helpText)
 }

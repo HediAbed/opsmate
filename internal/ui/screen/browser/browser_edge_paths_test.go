@@ -9,6 +9,7 @@ import (
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/table"
 	tea "charm.land/bubbletea/v2"
+
 	"github.com/HediAbed/opsmate/internal/analysis"
 	"github.com/HediAbed/opsmate/internal/cluster"
 	clusterui "github.com/HediAbed/opsmate/internal/ui/cluster"

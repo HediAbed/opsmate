@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"charm.land/lipgloss/v2"
+
 	"github.com/HediAbed/opsmate/internal/cluster"
 )
 

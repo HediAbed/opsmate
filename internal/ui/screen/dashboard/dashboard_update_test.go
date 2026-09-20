@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+
 	"github.com/HediAbed/opsmate/internal/analysis"
 	"github.com/HediAbed/opsmate/internal/cluster"
 	clusterui "github.com/HediAbed/opsmate/internal/ui/cluster"

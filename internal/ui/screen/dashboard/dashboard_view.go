@@ -7,6 +7,7 @@ import (
 
 	"charm.land/bubbles/v2/viewport"
 	"charm.land/lipgloss/v2"
+
 	"github.com/HediAbed/opsmate/internal/terminal"
 	"github.com/HediAbed/opsmate/internal/ui/component"
 	"github.com/HediAbed/opsmate/internal/ui/screen"
@@ -154,7 +155,7 @@ func (m DashboardModel) renderTitleBar(width int) string {
 	gap := max(1, width-lipgloss.Width(left)-lipgloss.Width(right)-1)
 	bar := left + strings.Repeat(" ", gap) + right
 
-	return lipgloss.NewStyle().Width(width).Background(theme.DarkerBg).Render(bar)
+	return lipgloss.NewStyle().Width(width).Render(bar)
 }
 
 func (m DashboardModel) renderOverviewRow(width int) string {

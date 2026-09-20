@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"charm.land/bubbles/v2/table"
+
 	"github.com/HediAbed/opsmate/internal/cluster"
 )
 

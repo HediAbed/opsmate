@@ -111,7 +111,7 @@ func newShellInput(width int) textinput.Model {
 		CharLimit:   shellInputCharLimit,
 		Width:       max(shellMinInputWidth, width-shellInputWidthChromeCols),
 		PromptStyle: theme.AnalysisAccent,
-		TextStyle:   lipgloss.NewStyle().Foreground(theme.LightText),
+		TextStyle:   lipgloss.NewStyle(),
 	})
 }
 

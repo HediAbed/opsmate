@@ -4,10 +4,11 @@ import (
 	"strconv"
 	"time"
 
-	model "github.com/HediAbed/opsmate/internal/cluster"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	model "github.com/HediAbed/opsmate/internal/cluster"
 )
 
 func projectCronJobs(items []batchv1.CronJob, now time.Time) []model.CronJob {

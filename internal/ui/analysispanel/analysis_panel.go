@@ -138,7 +138,7 @@ func NewWithService(service analysis.Service) AnalysisPanelModel {
 		CharLimit:   analysisPanelInputCharacterLimit,
 		Width:       analysisPanelInitialWidth,
 		PromptStyle: theme.AnalysisAccent,
-		TextStyle:   lipgloss.NewStyle().Foreground(theme.LightText),
+		TextStyle:   lipgloss.NewStyle(),
 	})
 
 	loadingSpinner := spinner.New(

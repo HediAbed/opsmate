@@ -4,8 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/HediAbed/opsmate/internal/kube"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/HediAbed/opsmate/internal/kube"
 )
 
 type testContextManager struct {

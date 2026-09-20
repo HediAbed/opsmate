@@ -45,8 +45,6 @@ const (
 	dashboardNameMinimumWidth          = 10
 	dashboardInfoColumnsWidth          = 30
 	milliCPUPerCore                    = 1000
-	dashboardCriticalUsageThreshold    = 0.9
-	dashboardWarningUsageThreshold     = 0.7
 	dashboardAlertLimit                = 4
 	dashboardRestartAlertThreshold     = 10
 	dashboardDeploymentBarMinimumWidth = 8
@@ -145,7 +143,7 @@ func newDashboardWithAnalysis(namespace string, commands clusterui.Commands, ana
 		table.WithHeight(dashboardInitialTableHeight),
 		table.WithWidth(dashboardInitialWidth),
 	)
-	podTable.SetStyles(dashTableStyles())
+	podTable.SetStyles(component.TableStyles())
 
 	return DashboardModel{
 		namespace:          namespace,
@@ -388,8 +386,6 @@ var (
 	barFillRunning   = lipgloss.NewStyle().Foreground(theme.Green)
 	barFillPending   = lipgloss.NewStyle().Foreground(theme.Yellow)
 	barFillFailed    = lipgloss.NewStyle().Foreground(theme.Red)
-	barFillCritical  = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF4444"))
-	barFillWarning   = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFD700"))
 	barFillDimmed    = lipgloss.NewStyle().Foreground(theme.DimText)
 	overviewBadgeRun = lipgloss.NewStyle().Foreground(theme.Purple).Bold(true)
 	alertCritical    = lipgloss.NewStyle().Foreground(theme.Red).Bold(true)

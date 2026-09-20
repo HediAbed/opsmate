@@ -13,9 +13,8 @@ var (
 	VividMagenta = lipgloss.Color("#FF00FF")
 	DeepViolet   = lipgloss.Color("#7B2FBE")
 	DarkBg       = lipgloss.Color("#1a1a2e")
-	DarkerBg     = lipgloss.Color("#16213e")
 	DimText      = lipgloss.Color("#555577")
-	LightText    = lipgloss.Color("#EEEEFF")
+	MutedText    = lipgloss.Color("#767676")
 	White        = lipgloss.Color("#FAFAFA")
 	Green        = lipgloss.Color("#00FF88")
 	Red          = lipgloss.Color("#FF4444")
@@ -29,19 +28,19 @@ var (
 )
 
 var StatusBar = lipgloss.NewStyle().
-	Background(DarkerBg).
 	Foreground(NeonCyan).
 	Padding(0, 1)
 
 var StatusBarActive = lipgloss.NewStyle().
-	Background(HotPink).
-	Foreground(White).
+	Foreground(HotPink).
 	Bold(true).
 	Padding(0, 1)
 
 var StatusBarItem = lipgloss.NewStyle().
-	Background(DarkerBg).
-	Foreground(DimText).
+	Foreground(MutedText).
+	Padding(0, 1)
+
+var Bar = lipgloss.NewStyle().
 	Padding(0, 1)
 
 var Title = lipgloss.NewStyle().
@@ -82,7 +81,7 @@ var Accent = lipgloss.NewStyle().
 	Bold(true)
 
 var Dim = lipgloss.NewStyle().
-	Foreground(DimText)
+	Foreground(MutedText)
 
 var Success = lipgloss.NewStyle().
 	Foreground(Green).
@@ -104,21 +103,21 @@ var HelpKey = lipgloss.NewStyle().
 	Bold(true)
 
 var HelpDesc = lipgloss.NewStyle().
-	Foreground(DimText)
+	Foreground(MutedText)
 
 var BreadcrumbStyle = lipgloss.NewStyle().
 	Foreground(NeonCyan).
 	Bold(true)
 
 var BreadcrumbSep = lipgloss.NewStyle().
-	Foreground(DimText)
+	Foreground(MutedText)
 
 var IndicatorOn = lipgloss.NewStyle().
 	Foreground(Green).
 	Bold(true)
 
 var IndicatorOff = lipgloss.NewStyle().
-	Foreground(DimText)
+	Foreground(MutedText)
 
 var FilterBadge = lipgloss.NewStyle().
 	Foreground(DarkBg).

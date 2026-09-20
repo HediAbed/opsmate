@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+
 	"github.com/HediAbed/opsmate/internal/ui/component"
 	"github.com/HediAbed/opsmate/internal/ui/theme"
 )
