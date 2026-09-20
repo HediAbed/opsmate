@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpsMate — a terminal UI for Kubernetes</title>
+<meta name="description" content="OpsMate is an opinionated terminal UI for Kubernetes. It reads your kubeconfig with client-go and your Helm releases through the Helm SDK. No agent, no cluster install, no daemon.">
+<meta property="og:title" content="OpsMate — a terminal UI for Kubernetes">
+<meta property="og:description" content="Dashboard, browser, logs, Helm and CRDs in your terminal. No agent, no cluster install.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="starfield" aria-hidden="true"></div>
+
+<header class="topbar">
+  <a class="wordmark" href="#top"><span class="wordmark__ops">OPS</span><span class="wordmark__mate">MATE</span></a>
+  <nav class="topnav" aria-label="Primary">
+    <a href="#what">What it is</a>
+    <a href="#screens">Screens</a>
+    <a href="#install">Install</a>
+    <a href="#supply">Provenance</a>
+    <a class="topnav__repo" href="https://github.com/HediAbed/opsmate">GitHub</a>
+  </nav>
+</header>
+
+<main id="top">
+
+  <section class="hero">
+    <div class="hero__copy">
+      <h1 class="hero__title">Kubernetes,<br>in the terminal<br><span class="hero__title--accent">you already use.</span></h1>
+      <p class="hero__lede">OpsMate reads your kubeconfig and shows what is running. Nothing is installed in the cluster: no agent, no daemon, no CRD, no service account.</p>
+      <div class="hero__actions">
+        <a class="btn btn--primary" href="#install">Install it</a>
+        <a class="btn btn--ghost" href="https://github.com/HediAbed/opsmate/releases/latest">Latest release</a>
+      </div>
+      <p class="hero__meta"><span class="dot dot--live"></span>v0.1.4 · linux · macOS · windows · signed &amp; attested</p>
+    </div>
+
+    <div class="crt">
+      <div class="crt__frame">
+        <div class="crt__chrome"><span class="crt__dot"></span><span class="crt__dot"></span><span class="crt__dot"></span><span class="crt__title">opsmate — opsmate-demo</span></div>
+        <div class="crt__screen">
+          <img class="shot" src="media/dashboard.png" width="1400" height="973" alt="The OpsMate dashboard: pod counts, deployment health bars, top resource consumers, a pod table and recent events." loading="eager" decoding="async">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="what" class="what">
+    <h2 class="section__title">What it does</h2>
+    <div class="what__grid">
+      <p class="what__lede">Six screens for the things you open a terminal to check: what is running, what broke, what the logs say, what Helm installed.</p>
+      <ul class="stance">
+        <li><b>Your credentials, unchanged.</b> Whatever your kubeconfig can do, OpsMate can do. Nothing more. An account limited to one namespace gets a short “Not permitted” notice instead of a wall of RBAC errors.</li>
+        <li><b>Careful with writes.</b> Scaling, restarting and deleting ask first. The <code>kubectl</code> it writes for you is scoped to your namespace and quoted.</li>
+        <li><b>It stays a terminal.</b> It follows your colour scheme, and <b>M</b> gives the mouse back so you can select text the way you normally do.</li>
+        <li><b>AI is optional.</b> Set an endpoint and it explains a log line. Leave it unset and nothing else changes.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="screens" class="screens">
+    <h2 class="section__title">Six screens, one keystroke apart</h2>
+    <div class="switcher">
+      <div class="switcher__tabs" role="tablist" aria-label="OpsMate screens">
+        <button role="tab" aria-selected="true" aria-controls="p-dash" id="t-dash" class="ptab ptab--on"><b>1</b> Dashboard</button>
+        <button role="tab" aria-selected="false" aria-controls="p-browse" id="t-browse" class="ptab"><b>2</b> Browser</button>
+        <button role="tab" aria-selected="false" aria-controls="p-logs" id="t-logs" class="ptab"><b>3</b> Logs</button>
+        <button role="tab" aria-selected="false" aria-controls="p-ai" id="t-ai" class="ptab"><b>4</b> Analysis</button>
+      </div>
+      <div class="switcher__stage">
+        <div role="tabpanel" id="p-dash" aria-labelledby="t-dash" class="pane pane--on">
+          <p class="pane__say">Pod counts, deployment readiness, restarts, events, CPU and memory. Metrics need the Kubernetes Metrics API.</p>
+          <img class="shot" src="media/dashboard.png" width="1400" height="973" alt="Dashboard: seven pods running, three deployments healthy, top resource consumers and recent events." loading="lazy" decoding="async">
+        </div>
+        <div role="tabpanel" id="p-browse" aria-labelledby="t-browse" class="pane" hidden>
+          <p class="pane__say">Pods, deployments, services, storage, config, RBAC, nodes and events. Describe, YAML, filter, wide columns.</p>
+          <img class="shot" src="media/browser.png" width="1400" height="973" alt="Browser: the pods tab listing seven pods with status, ready count, restarts, age and node." loading="lazy" decoding="async">
+        </div>
+        <div role="tabpanel" id="p-logs" aria-labelledby="t-logs" class="pane" hidden>
+          <p class="pane__say">Stream any container. Pause, filter, jump between errors. Click a line or drag a range, then copy it.</p>
+          <img class="shot" src="media/logs.png" width="1400" height="973" alt="Log viewer following a container, with warning and error lines highlighted among info lines." loading="lazy" decoding="async">
+        </div>
+        <div role="tabpanel" id="p-ai" aria-labelledby="t-ai" class="pane" hidden>
+          <p class="pane__say">Ask about what you are looking at, or type <code>!</code> to have a kubectl command written for you. Off until you configure a provider.</p>
+          <img class="shot" src="media/analysis.png" width="1694" height="973" alt="The dashboard with the analysis panel open beside it, showing example questions and the prompt." loading="lazy" decoding="async">
+        </div>
+      </div>
+    </div>
+    <p class="screens__note">Screenshots are real terminal output, captured from a live cluster.</p>
+  </section>
+
+  <section id="install" class="install">
+    <h2 class="section__title">Install</h2>
+    <div class="os" role="tablist" aria-label="Operating system">
+      <button role="tab" aria-selected="true" aria-controls="i-linux" id="ti-linux" class="ptab ptab--on">Linux</button>
+      <button role="tab" aria-selected="false" aria-controls="i-mac" id="ti-mac" class="ptab">macOS</button>
+      <button role="tab" aria-selected="false" aria-controls="i-win" id="ti-win" class="ptab">Windows</button>
+    </div>
+
+    <div role="tabpanel" id="i-linux" aria-labelledby="ti-linux" class="pane pane--on">
+      <p class="pane__say">Download the archive for your architecture, verify it, run it.</p>
+      <pre class="cmd"><code>curl -LO https://github.com/HediAbed/opsmate/releases/download/v0.1.4/opsmate_0.1.4_linux_amd64.tar.gz
+curl -LO https://github.com/HediAbed/opsmate/releases/download/v0.1.4/checksums.txt
+sha256sum -c checksums.txt --ignore-missing
+tar xzf opsmate_0.1.4_linux_amd64.tar.gz
+./opsmate</code></pre>
+      <p class="pane__alt"><code>arm64</code> builds ship under the same names. With Go 1.26.6+: <code>go install github.com/HediAbed/opsmate/cmd/opsmate@latest</code></p>
+    </div>
+
+    <div role="tabpanel" id="i-mac" aria-labelledby="ti-mac" class="pane" hidden>
+      <p class="pane__say">Apple silicon is <code>darwin_arm64</code>, Intel is <code>darwin_amd64</code>.</p>
+      <pre class="cmd"><code>curl -LO https://github.com/HediAbed/opsmate/releases/download/v0.1.4/opsmate_0.1.4_darwin_arm64.tar.gz
+curl -LO https://github.com/HediAbed/opsmate/releases/download/v0.1.4/checksums.txt
+shasum -a 256 -c checksums.txt --ignore-missing
+tar xzf opsmate_0.1.4_darwin_arm64.tar.gz
+./opsmate</code></pre>
+      <p class="pane__alt">Gatekeeper will quarantine an unsigned download: <code>xattr -d com.apple.quarantine ./opsmate</code></p>
+    </div>
+
+    <div role="tabpanel" id="i-win" aria-labelledby="ti-win" class="pane" hidden>
+      <p class="pane__say">A zip for <code>windows_amd64</code>. PowerShell:</p>
+      <pre class="cmd"><code>Invoke-WebRequest -OutFile opsmate.zip `
+  https://github.com/HediAbed/opsmate/releases/download/v0.1.4/opsmate_0.1.4_windows_amd64.zip
+Expand-Archive opsmate.zip -DestinationPath .
+Get-FileHash .\opsmate.exe -Algorithm SHA256
+.\opsmate.exe</code></pre>
+      <p class="pane__alt">There is no Windows ARM build.</p>
+    </div>
+
+    <p class="install__need">You need a working kubeconfig. OpsMate opens the namespace of your current context, or all namespaces when the context sets none.</p>
+  </section>
+
+  <section id="supply" class="supply">
+    <h2 class="section__title">Every release is verifiable</h2>
+    <div class="supply__grid">
+      <article><h3>SHA-256 checksums</h3><p>A <code>checksums.txt</code> covering every archive, published with the release.</p></article>
+      <article><h3>Keyless signature</h3><p>Sigstore bundle over the checksum file. <code>cosign verify-blob</code> against the repository identity.</p></article>
+      <article><h3>SPDX SBOM</h3><p>One SBOM per archive, built with Syft during release.</p></article>
+      <article><h3>Build provenance</h3><p>GitHub attestation binding each archive to the workflow that produced it. <code>gh attestation verify</code>.</p></article>
+    </div>
+  </section>
+
+  <section class="cta">
+    <h2 class="cta__title">Open your cluster.</h2>
+    <a class="btn btn--primary btn--big" href="https://github.com/HediAbed/opsmate/releases/latest">Get OpsMate v0.1.4</a>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>MIT licensed</span>
+  <a href="https://github.com/HediAbed/opsmate">Source</a>
+  <a href="https://github.com/HediAbed/opsmate/releases">Releases</a>
+  <a href="https://github.com/HediAbed/opsmate/issues">Issues</a>
+</footer>
+
+<script src="app.js" defer></script>
+</body>
+</html>
