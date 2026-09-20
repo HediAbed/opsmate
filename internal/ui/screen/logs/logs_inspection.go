@@ -120,8 +120,10 @@ func (m LogsModel) handleInspectKey(msg tea.KeyPressMsg) (LogsModel, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "i":
 		m.inspectMode = false
+		m.selectingWithMouse = false
+		m.selectionAnchor = noLineSelected
 		m.resetExplanation()
-		m.logView.SetContent(m.colorizeLines(m.filteredLines))
+		m.syncLogContent()
 		return m, nil
 	case "up", "k":
 		m.moveInspectCursor(-1)
@@ -129,6 +131,8 @@ func (m LogsModel) handleInspectKey(msg tea.KeyPressMsg) (LogsModel, tea.Cmd) {
 		m.moveInspectCursor(1)
 	case "enter":
 		return m, m.explainInspectedLine()
+	case "c":
+		return m.copySelectedLine()
 	case "n":
 		if index, found := m.nextImportantLine(); found {
 			m.jumpToInspectLine(index)
@@ -147,14 +151,27 @@ func (m *LogsModel) moveInspectCursor(offset int) {
 		return
 	}
 	m.lineCursor = nextCursor
+	m.selectionAnchor = nextCursor
 	m.resetExplanation()
 	m.rebuildInspectView()
-	if m.lineCursor < m.logView.YOffset() {
-		m.logView.SetYOffset(m.lineCursor)
+	m.revealInspectCursor()
+}
+
+func (m *LogsModel) revealInspectCursor() {
+	index := m.logRowIndex()
+	cursorTopRow := index.rowOf(m.lineCursor)
+	cursorBottomRow := cursorTopRow + index.rowsIn(m.lineCursor)
+	if cursorTopRow < m.logView.YOffset() {
+		m.logView.SetYOffset(cursorTopRow)
+		return
 	}
-	if m.lineCursor >= m.logView.YOffset()+m.logView.Height() {
-		m.logView.SetYOffset(m.lineCursor - m.logView.Height() + 1)
+	if cursorBottomRow > m.logView.YOffset()+m.logView.Height() {
+		m.logView.SetYOffset(cursorBottomRow - m.logView.Height())
 	}
+}
+
+func (m *LogsModel) logRowIndex() lineRowIndex {
+	return newLineRowIndex(m.viewportLines(), m.logView.Width())
 }
 
 func (m *LogsModel) explainInspectedLine() tea.Cmd {
@@ -189,32 +206,58 @@ func (m LogsModel) previousImportantLine() (int, bool) {
 
 func (m *LogsModel) jumpToInspectLine(index int) {
 	m.lineCursor = index
+	m.selectionAnchor = index
 	m.resetExplanation()
 	m.rebuildInspectView()
+	rows := m.logRowIndex()
+	cursorRow := rows.rowOf(index)
 	viewportTop := m.logView.YOffset()
 	viewportBottom := viewportTop + m.logView.Height()
-	if index < viewportTop || index >= viewportBottom {
-		m.logView.SetYOffset(max(0, index-m.logView.Height()/centerDivisor))
+	if cursorRow < viewportTop || cursorRow >= viewportBottom {
+		m.logView.SetYOffset(max(0, cursorRow-m.logView.Height()/centerDivisor))
 	}
+}
+
+func (m *LogsModel) viewportLines() []string {
+	rendered := m.renderLogLines(m.filteredLines)
+	if !m.inspectMode {
+		return rendered
+	}
+	first, last := m.selectionRange()
+	for position := first; position <= last && position < len(rendered); position++ {
+		prefix := selectionLinePrefix
+		if position == m.lineCursor {
+			prefix = inspectCursorPrefix
+		}
+		rendered[position] = theme.LogInspectCursor.Render(prefix + m.filteredLines[position])
+	}
+	return rendered
+}
+
+func (m LogsModel) selectionRange() (int, int) {
+	if m.selectionAnchor < 0 || m.selectionAnchor >= len(m.filteredLines) {
+		return m.lineCursor, m.lineCursor
+	}
+	return min(m.selectionAnchor, m.lineCursor), max(m.selectionAnchor, m.lineCursor)
+}
+
+func (m *LogsModel) selectedLines() []string {
+	first, last := m.selectionRange()
+	if first < 0 || last >= len(m.filteredLines) {
+		return nil
+	}
+	return m.filteredLines[first : last+1]
+}
+
+func (m *LogsModel) syncLogContent() {
+	m.logView.SetContent(strings.Join(m.viewportLines(), "\n"))
 }
 
 func (m *LogsModel) rebuildInspectView() {
 	if len(m.filteredLines) == 0 {
 		return
 	}
-	var b strings.Builder
-	b.Grow(len(m.filteredLines) * estimatedLogLineBytes)
-	for i, line := range m.filteredLines {
-		if i == m.lineCursor {
-			b.WriteString(theme.LogInspectCursor.Render("▶ " + line))
-		} else {
-			b.WriteString(m.renderedLine(line).rendered)
-		}
-		if i < len(m.filteredLines)-1 {
-			b.WriteByte('\n')
-		}
-	}
-	m.logView.SetContent(b.String())
+	m.syncLogContent()
 }
 
 func (m LogsModel) getSurroundingContext(index, radius int) string {

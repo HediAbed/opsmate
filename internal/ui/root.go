@@ -91,6 +91,7 @@ type RootModel struct {
 	contextsLoaded      bool
 	showNSPicker        bool
 	showHelp            bool
+	mouseReleased       bool
 	nsCursor            int
 	nsSpinner           spinner.Model
 	nsLoading           bool

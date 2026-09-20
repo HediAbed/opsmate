@@ -279,12 +279,12 @@ func rootScreenForKey(key string) (screenID, bool) {
 }
 
 func (m RootModel) handleGlobalRootKey(key string, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if updated, command, handled := m.handleRootToggleKey(key); handled {
+		return updated, command
+	}
 	switch key {
 	case "q", "ctrl+c":
 		return m, tea.Quit
-	case "tab":
-		m.toggleAnalysisPanel()
-		return m, nil
 	case "n":
 		return m, m.openNamespacePicker()
 	case "k":
@@ -292,9 +292,6 @@ func (m RootModel) handleGlobalRootKey(key string, msg tea.KeyMsg) (tea.Model, t
 		m.ctxCursor = 0
 		m.ctxLoading = true
 		return m, m.fetchContexts()
-	case "?":
-		m.showHelp = !m.showHelp
-		return m, nil
 	case ":":
 		m.showCmdPalette = true
 		m.cmdInput.SetValue("")
@@ -308,6 +305,21 @@ func (m RootModel) handleGlobalRootKey(key string, msg tea.KeyMsg) (tea.Model, t
 	default:
 		return m.updateActiveScreen(msg)
 	}
+}
+
+func (m RootModel) handleRootToggleKey(key string) (RootModel, tea.Cmd, bool) {
+	switch key {
+	case "tab":
+		m.toggleAnalysisPanel()
+	case "?":
+		m.showHelp = !m.showHelp
+	case "M":
+		m.mouseReleased = !m.mouseReleased
+		m.setNotice(mouseModeNotice(m.mouseReleased))
+	default:
+		return m, nil, false
+	}
+	return m, nil, true
 }
 
 func (m *RootModel) toggleAnalysisPanel() {

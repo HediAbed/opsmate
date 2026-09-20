@@ -18,12 +18,16 @@ func (m *LogsModel) recalcLayout() {
 }
 
 func (m *LogsModel) syncLogViewport() {
-	inner := logsPanel().ContentSize(component.Size{
-		Width:  m.width - logsPanelGutter,
-		Height: m.logContentHeight(),
-	})
+	inner := logsPanel().ContentSize(logsPanelSize(m.width, m.logContentHeight()))
 	m.logView.SetWidth(max(1, inner.Width))
 	m.logView.SetHeight(max(1, inner.Height))
+}
+
+func logsPanelSize(width, contentHeight int) component.Size {
+	return component.Size{
+		Width:  width - logsPanelGutter,
+		Height: max(1, contentHeight-logsPanelGutter),
+	}
 }
 
 func (m LogsModel) logContentHeight() int {
@@ -100,19 +104,15 @@ func isStackTraceLine(lowercaseLine string) bool {
 }
 
 func (m *LogsModel) colorizeLines(lines []string) string {
-	if len(lines) == 0 {
-		return ""
+	return strings.Join(m.renderLogLines(lines), "\n")
+}
+
+func (m *LogsModel) renderLogLines(lines []string) []string {
+	rendered := make([]string, len(lines))
+	for position, line := range lines {
+		rendered[position] = m.renderedLine(line).rendered
 	}
-	var b strings.Builder
-	b.Grow(len(lines) * estimatedLogLineBytes)
-	for i, line := range lines {
-		entry := m.renderedLine(line)
-		b.WriteString(entry.rendered)
-		if i < len(lines)-1 {
-			b.WriteByte('\n')
-		}
-	}
-	return b.String()
+	return rendered
 }
 
 func (m *LogsModel) renderedLine(line string) renderedLogLine {

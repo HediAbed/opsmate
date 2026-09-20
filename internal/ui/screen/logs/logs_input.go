@@ -5,7 +5,9 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
+	"github.com/HediAbed/opsmate/internal/ui/component"
 	"github.com/HediAbed/opsmate/internal/ui/screen"
 )
 
@@ -29,7 +31,7 @@ func (m LogsModel) handleLogFilterKey(msg tea.KeyPressMsg) (LogsModel, tea.Cmd) 
 	case "enter":
 		m.filter = m.filterInput.Value()
 		m.applyFilter()
-		m.logView.SetContent(m.colorizeLines(m.filteredLines))
+		m.syncLogContent()
 		if m.autoScroll {
 			m.logView.GotoBottom()
 		}
@@ -117,7 +119,9 @@ func (m *LogsModel) startLogInspection() {
 	m.resetExplanation()
 	m.inspectMode = true
 	m.paused = true
-	m.lineCursor = min(m.logView.YOffset()+m.logView.Height()/logsCursorCenterDivisor, len(m.filteredLines)-1)
+	visibleCentreRow := m.logView.YOffset() + m.logView.Height()/logsCursorCenterDivisor
+	m.lineCursor = m.logRowIndex().lineAt(visibleCentreRow)
+	m.selectionAnchor = m.lineCursor
 	m.rebuildInspectView()
 }
 
@@ -133,6 +137,68 @@ func (m LogsModel) copyAllLogs() (LogsModel, tea.Cmd) {
 	status, command := screen.CopyToClipboard(content, fmt.Sprintf("%d lines", len(m.allLines)))
 	m.statusMsg = status
 	return m, command
+}
+
+func (m LogsModel) copySelectedLine() (LogsModel, tea.Cmd) {
+	selected := m.selectedLines()
+	if len(selected) == 0 {
+		return m, nil
+	}
+	status, command := screen.CopyToClipboard(
+		strings.Join(selected, "\n"),
+		fmt.Sprintf("%d %s", len(selected), component.NounForCount("line", "lines", len(selected))),
+	)
+	m.statusMsg = status
+	return m, command
+}
+
+func (m LogsModel) handleLogLineClick(msg tea.MouseClickMsg) (LogsModel, tea.Cmd) {
+	line, inside := m.lineAtScreenRow(msg.Y)
+	if msg.Button != tea.MouseLeft || !inside {
+		return m, nil
+	}
+	m.resetExplanation()
+	m.inspectMode = true
+	m.paused = true
+	m.selectingWithMouse = true
+	m.selectionAnchor = line
+	m.lineCursor = line
+	m.rebuildInspectView()
+	return m, nil
+}
+
+func (m LogsModel) handleLogLineDrag(msg tea.MouseMotionMsg) (LogsModel, tea.Cmd) {
+	if !m.selectingWithMouse {
+		return m, nil
+	}
+	line, inside := m.lineAtScreenRow(msg.Y)
+	if !inside {
+		return m, nil
+	}
+	m.lineCursor = line
+	m.rebuildInspectView()
+	m.revealInspectCursor()
+	return m, nil
+}
+
+func (m LogsModel) handleLogSelectionRelease() (LogsModel, tea.Cmd) {
+	m.selectingWithMouse = false
+	return m, nil
+}
+
+func (m *LogsModel) lineAtScreenRow(screenRow int) (int, bool) {
+	if m.selectedPod == "" || len(m.filteredLines) == 0 {
+		return noLineSelected, false
+	}
+	viewportRow := screenRow - m.logViewportTopRow()
+	if viewportRow < 0 || viewportRow >= m.logView.Height() {
+		return noLineSelected, false
+	}
+	return m.logRowIndex().lineAt(m.logView.YOffset() + viewportRow), true
+}
+
+func (m LogsModel) logViewportTopRow() int {
+	return lipgloss.Height(m.renderTitleBar()) + logsPanelBorderRows
 }
 
 func (m LogsModel) forwardLogViewportKey(msg tea.KeyPressMsg) (LogsModel, tea.Cmd) {

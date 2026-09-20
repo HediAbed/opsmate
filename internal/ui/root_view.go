@@ -16,8 +16,22 @@ func (m RootModel) View() tea.View {
 	return tea.View{
 		Content:   m.renderContent(),
 		AltScreen: true,
-		MouseMode: tea.MouseModeCellMotion,
+		MouseMode: m.mouseMode(),
 	}
+}
+
+func (m RootModel) mouseMode() tea.MouseMode {
+	if m.mouseReleased {
+		return tea.MouseModeNone
+	}
+	return tea.MouseModeCellMotion
+}
+
+func mouseModeNotice(released bool) string {
+	if released {
+		return mouseReleasedNotice
+	}
+	return mouseCapturedNotice
 }
 
 func (m RootModel) renderContent() string {
@@ -397,6 +411,7 @@ func globalHelpBindings() []string {
 		rootHelpBinding{key: ":", description: "Command palette"},
 		rootHelpBinding{key: "ctrl+p", description: "Find resource"},
 		rootHelpBinding{key: "F", description: "Port-forwards"},
+		rootHelpBinding{key: "M", description: "Release mouse for terminal selection"},
 		rootHelpBinding{key: "?", description: "Toggle help"},
 		rootHelpBinding{key: "q", description: "Quit"},
 	)
@@ -473,6 +488,7 @@ func logsHelpBindings() []string {
 		rootHelpBinding{key: "g / G", description: "Top / bottom"},
 		rootHelpBinding{key: "+ / -", description: "Tail lines"},
 		rootHelpBinding{key: "c / C", description: "Copy visible / all"},
+		rootHelpBinding{key: "click", description: "Select line to inspect or copy"},
 		rootHelpBinding{key: "esc", description: "Back"},
 	)
 }

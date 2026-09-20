@@ -17,6 +17,8 @@ const (
 	defaultClusterNamespace   = "default"
 	namespaceListDeniedNotice = "Namespace list not permitted"
 	namespaceTypePrompt       = "Type a namespace name:"
+	mouseReleasedNotice       = "Mouse released; drag to select text, press M to re-enable mouse controls"
+	mouseCapturedNotice       = "Mouse controls enabled"
 )
 
 func (m *RootModel) applyNamespaces(msg cluster.NamespacesMsg) tea.Cmd {

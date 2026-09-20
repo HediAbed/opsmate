@@ -207,10 +207,7 @@ func (m BrowserModel) renderTableContent(height int) string {
 		return lipgloss.Place(m.width, height, lipgloss.Center, lipgloss.Center, emptyMsg)
 	}
 
-	return component.NewPanel(theme.BoxStyle).Render(
-		component.Size{Width: m.width - browserPanelGutter, Height: height - browserPanelGutter},
-		m.resourceTable.View(),
-	)
+	return tablePanel().Render(tablePanelSize(m.width, height), m.resourceTable.View())
 }
 
 func (m BrowserModel) renderEmptyTableHeadline() string {

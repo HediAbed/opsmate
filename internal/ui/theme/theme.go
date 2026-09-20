@@ -184,8 +184,9 @@ var (
 			Bold(true)
 
 	LogInspectCursor = lipgloss.NewStyle().
-				Background(lipgloss.Color("#2A2A4A")).
-				Foreground(White)
+				Background(DeepViolet).
+				Foreground(White).
+				Bold(true)
 )
 
 var (

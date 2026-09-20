@@ -28,6 +28,9 @@ const (
 	inspectContextLines          = 5
 	estimatedLogLineBytes        = 100
 	logsPanelGutter              = 2
+	logsPanelBorderRows          = 1
+	inspectCursorPrefix          = "▶ "
+	selectionLinePrefix          = "  "
 	logsEmptyStateVerticalChrome = 4
 	podPopupDesiredWidth         = 50
 	containerPopupDesiredWidth   = 40
@@ -88,6 +91,8 @@ type LogsModel struct {
 
 	inspectMode            bool
 	lineCursor             int
+	selectionAnchor        int
+	selectingWithMouse     bool
 	lineExplanation        string
 	lineExplanationLoading bool
 	lineExplanationErr     error
@@ -302,10 +307,17 @@ func (m LogsModel) updateLogDataMessage(msg tea.Msg) (LogsModel, tea.Cmd, bool) 
 func (m LogsModel) updateLogInputMessage(msg tea.Msg) (LogsModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.MouseClickMsg:
+		if m.showContainerPopup {
+			return m, nil
+		}
 		if m.showPodPopup {
 			return m.handlePopupMouse(msg)
 		}
-		return m, nil
+		return m.handleLogLineClick(msg)
+	case tea.MouseMotionMsg:
+		return m.handleLogLineDrag(msg)
+	case tea.MouseReleaseMsg:
+		return m.handleLogSelectionRelease()
 	case tea.MouseWheelMsg:
 		return m.handleLogMouseWheel(msg)
 	case tea.KeyPressMsg:
@@ -372,7 +384,7 @@ func (m *LogsModel) applyLogs(msg cluster.LogsMsg) tea.Cmd {
 	m.resetExplanation()
 	m.allLines = terminal.SanitizeLines(msg.Lines)
 	m.applyFilter()
-	m.logView.SetContent(m.colorizeLines(m.filteredLines))
+	m.syncLogContent()
 	if m.autoScroll {
 		m.logView.GotoBottom()
 	}

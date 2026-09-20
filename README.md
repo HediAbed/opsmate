@@ -34,13 +34,15 @@ When you build from source, run `./opsmate` instead. Run `opsmate --help` to see
 
 - Check pod status, deployment readiness, restarts, events, CPU, and memory from the dashboard.
 - Browse workloads, networking, storage, configuration, RBAC, nodes, namespaces, and events. View descriptions or YAML, filter rows, and switch between standard and wide columns.
-- Stream logs from any container. Pause the stream, filter lines, jump between errors, and inspect a selected line.
+- Stream logs from any container. Pause the stream, filter lines, jump between errors, and click or step onto a line to inspect or copy it.
 - Scale workloads, restart rollouts, delete resources, open a pod shell, and forward ports.
 - Switch kubeconfig contexts and namespaces without restarting OpsMate.
 - Inspect Helm releases and values. Browse CRDs and their resources.
 - Send the current screen context to an optional analysis endpoint.
 
 CPU and memory values require the Kubernetes Metrics API. The Helm view requires permission to read Helm release Secrets.
+
+OpsMate captures the mouse for clicks and scrolling. Press `M` to release it when you want to select text with your terminal's own selection, then press `M` again to take it back.
 
 OpsMate works with namespace-scoped accounts. Anything your account cannot read or change shows a short "Not permitted" notice in place of the data instead of an error. If the account cannot list namespaces, OpsMate stays inside the kubeconfig context namespace and the namespace picker accepts a typed namespace name.
 

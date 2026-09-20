@@ -49,12 +49,21 @@ func (m *BrowserModel) syncBrowserLayout() {
 }
 
 func (m *BrowserModel) syncFullTableLayout(height int) {
-	contentWidth := max(1, m.width-browserContentHorizontalChrome)
+	inner := tablePanel().ContentSize(tablePanelSize(m.width, height))
+	tableWidth := max(1, inner.Width)
 	if specs, ok := selectColSpecs(m.resourceType, m.wide); ok {
-		m.resourceTable.SetColumns(computeColumns(contentWidth, specs))
+		m.resourceTable.SetColumns(computeColumns(tableWidth, specs))
 	}
-	m.resourceTable.SetWidth(contentWidth)
-	m.resourceTable.SetHeight(max(browserMinimumTableHeight, height-browserPanelGutter))
+	m.resourceTable.SetWidth(tableWidth)
+	m.resourceTable.SetHeight(max(browserMinimumTableHeight, inner.Height))
+}
+
+func tablePanel() component.Panel {
+	return component.NewPanel(theme.BoxStyle)
+}
+
+func tablePanelSize(width, height int) component.Size {
+	return component.Size{Width: width - browserPanelGutter, Height: height - browserPanelGutter}
 }
 
 func (m *BrowserModel) syncVerticalDetailLayout(height int) {

@@ -59,13 +59,7 @@ func (m LogsModel) renderLogPanel(contentHeight int) string {
 			emptyMessage,
 		)
 	}
-	return logsPanel().Render(
-		component.Size{
-			Width:  m.width - logsPanelGutter,
-			Height: max(1, contentHeight-logsPanelGutter),
-		},
-		content,
-	)
+	return logsPanel().Render(logsPanelSize(m.width, contentHeight), content)
 }
 
 func logsPanel() component.Panel {
@@ -194,6 +188,7 @@ func (m LogsModel) renderHelpBar() string {
 			theme.HelpKey.Render("j/k") + theme.HelpDesc.Render(": move"),
 			theme.HelpKey.Render("enter") + theme.HelpDesc.Render(": explain"),
 			theme.HelpKey.Render("n/N") + theme.HelpDesc.Render(": next/prev issue"),
+			theme.HelpKey.Render("c") + theme.HelpDesc.Render(": copy line"),
 			theme.HelpKey.Render("esc") + theme.HelpDesc.Render(": exit inspect"),
 		}
 	} else {
@@ -206,6 +201,7 @@ func (m LogsModel) renderHelpBar() string {
 			theme.HelpKey.Render("g/G") + theme.HelpDesc.Render(": top/bottom"),
 			theme.HelpKey.Render("+/-") + theme.HelpDesc.Render(": tail lines"),
 			theme.HelpKey.Render("c/C") + theme.HelpDesc.Render(": copy"),
+			theme.HelpKey.Render("click") + theme.HelpDesc.Render(": select line"),
 		}
 	}
 	return theme.Bar.
