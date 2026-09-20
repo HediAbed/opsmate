@@ -1,9 +1,8 @@
 package browser
 
 import (
+	"strings"
 	"testing"
-
-	"charm.land/lipgloss/v2"
 )
 
 func TestBrowser_AnalysisOverlayBounds_SumsToTotal(t *testing.T) {
@@ -21,24 +20,28 @@ func TestBrowser_AnalysisOverlayBounds_SumsToTotal(t *testing.T) {
 	}
 }
 
-func TestBrowser_AnalysisOverlayBounds_MatchesActualChrome(t *testing.T) {
-	m := newTestBrowserModel("default")
-	m.SetSize(200, 40)
-	topOff, _, bottomOff := m.AnalysisOverlayBounds(40)
+func TestBrowserOverlayBoundsCoverExactlyTheRenderedTableRows(t *testing.T) {
+	m := newBrowserWithMarkerPod(t, "default")
 
-	wantTop := lipgloss.Height(m.renderTitleBar())
-	if filter := m.renderFilterBar(); filter != "" {
-		wantTop += lipgloss.Height(filter)
-	}
-	if errBan := m.renderErrBanner(); errBan != "" {
-		wantTop += lipgloss.Height(errBan)
-	}
-	wantBottom := lipgloss.Height(m.renderStatusLine()) + lipgloss.Height(m.renderHelpBar())
+	topOffset, panelHeight, bottomOffset := m.AnalysisOverlayBounds(40)
 
-	if topOff != wantTop {
-		t.Errorf("topOffset=%d, want %d (matching browser's pre-content chrome)", topOff, wantTop)
+	var boxTop, boxBottom = -1, -1
+	for index, row := range strings.Split(m.View(), "\n") {
+		if strings.Contains(row, "\u256d") && boxTop < 0 {
+			boxTop = index
+		}
+		if strings.Contains(row, "\u2570") {
+			boxBottom = index
+		}
 	}
-	if bottomOff != wantBottom {
-		t.Errorf("bottomOffset=%d, want %d (matching browser's post-content chrome)", bottomOff, wantBottom)
+
+	if topOffset != boxTop {
+		t.Errorf("overlay starts at row %d but the table panel starts at row %d", topOffset, boxTop)
+	}
+	if got := topOffset + panelHeight - 1; got != boxBottom {
+		t.Errorf("overlay ends at row %d but the table panel ends at row %d", got, boxBottom)
+	}
+	if topOffset+panelHeight+bottomOffset != 40 {
+		t.Errorf("bounds %d/%d/%d do not fill 40 rows", topOffset, panelHeight, bottomOffset)
 	}
 }

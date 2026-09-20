@@ -92,20 +92,8 @@ func (m *LogsModel) SetSize(width, height int) {
 
 func (m LogsModel) AnalysisOverlayBounds(totalHeight int) (topOffset, panelHeight, bottomOffset int) {
 	topOffset = lipgloss.Height(m.renderTitleBar())
-	bottomOffset = lipgloss.Height(m.renderHelpBar())
-	if filter := m.renderFilterBar(); filter != "" {
-		bottomOffset += lipgloss.Height(filter)
-	}
-	if m.statusMsg != "" {
-		bottomOffset += lipgloss.Height(m.statusMsg)
-	}
-	if m.err != nil {
-		bottomOffset++
-	}
-	if m.inspectMode {
-		bottomOffset += lipgloss.Height(m.renderExplainPanel())
-	}
-	return component.AnalysisOverlayBounds(totalHeight, topOffset, bottomOffset)
+	panelHeight = logsPanelSize(m.width, m.logContentHeight()).Height
+	return component.AnalysisOverlayBounds(totalHeight, topOffset, totalHeight-topOffset-panelHeight)
 }
 
 func (m LogsModel) renderTitleBar() string {

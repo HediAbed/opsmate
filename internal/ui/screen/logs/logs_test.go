@@ -12,27 +12,51 @@ import (
 	"github.com/HediAbed/opsmate/internal/ui/component"
 )
 
-func TestLogsAnalysisOverlayBoundsMatchChromeLayout(t *testing.T) {
-	model := newTestLogsModel("default")
-	model.SetSize(200, 40)
-	topOffset, panelHeight, bottomOffset := model.AnalysisOverlayBounds(40)
-	if topOffset != 1 || bottomOffset != 1 || panelHeight != 38 {
-		t.Fatalf("bounds without filter = (%d, %d, %d), want (1, 38, 1)", topOffset, panelHeight, bottomOffset)
+func boxRowsForTest(view string) (top, bottom int) {
+	top, bottom = -1, -1
+	for index, row := range strings.Split(view, "\n") {
+		if strings.Contains(row, "\u256d") && top < 0 {
+			top = index
+		}
+		if strings.Contains(row, "\u2570") {
+			bottom = index
+		}
 	}
+	return top, bottom
+}
 
-	model.filterInput.Focus()
-	topOffset, panelHeight, bottomOffset = model.AnalysisOverlayBounds(40)
-	if topOffset != 1 || bottomOffset != 2 || panelHeight != 37 {
-		t.Fatalf("bounds with filter = (%d, %d, %d), want (1, 37, 2)", topOffset, panelHeight, bottomOffset)
+func TestLogsOverlayBoundsCoverExactlyTheRenderedPanelRows(t *testing.T) {
+	for _, withFilter := range []bool{false, true} {
+		model := newTestLogsModel("default")
+		model.SetSize(200, 40)
+		if withFilter {
+			model.filterInput.Focus()
+		}
+
+		topOffset, panelHeight, bottomOffset := model.AnalysisOverlayBounds(40)
+		boxTop, boxBottom := boxRowsForTest(model.View())
+
+		if topOffset != boxTop {
+			t.Errorf("filter=%v: overlay starts at row %d but the log panel starts at row %d", withFilter, topOffset, boxTop)
+		}
+		if got := topOffset + panelHeight - 1; got != boxBottom {
+			t.Errorf("filter=%v: overlay ends at row %d but the log panel ends at row %d", withFilter, got, boxBottom)
+		}
+		if topOffset+panelHeight+bottomOffset != 40 {
+			t.Errorf("filter=%v: bounds %d/%d/%d do not fill 40 rows", withFilter, topOffset, panelHeight, bottomOffset)
+		}
 	}
 }
 
-func TestLogsAnalysisOverlayBoundsClampPanelToMinimum(t *testing.T) {
+func TestLogsOverlayBoundsClampPanelToMinimum(t *testing.T) {
 	model := newTestLogsModel("default")
 	model.SetSize(200, 5)
-	topOffset, panelHeight, bottomOffset := model.AnalysisOverlayBounds(5)
-	if topOffset != 1 || bottomOffset != 1 || panelHeight != component.MinimumAnalysisPanelHeight {
-		t.Fatalf("clamped bounds = (%d, %d, %d), want (1, %d, 1)", topOffset, panelHeight, bottomOffset, component.MinimumAnalysisPanelHeight)
+	topOffset, panelHeight, _ := model.AnalysisOverlayBounds(5)
+	if panelHeight != component.MinimumAnalysisPanelHeight {
+		t.Fatalf("panel height = %d, want the %d row minimum", panelHeight, component.MinimumAnalysisPanelHeight)
+	}
+	if topOffset < 0 {
+		t.Fatalf("top offset = %d, want a non-negative offset", topOffset)
 	}
 }
 

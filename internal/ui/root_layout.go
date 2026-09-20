@@ -88,7 +88,10 @@ func (m RootModel) analysisPanelHeight(contentHeight int) int {
 	case ScreenCRDs:
 		_, panelHeight, _ := m.crds.AnalysisOverlayBounds(contentHeight)
 		return panelHeight
-	case ScreenDashboard, ScreenAnalysis:
+	case ScreenDashboard:
+		_, panelHeight, _ := m.dashboard.AnalysisOverlayBounds(contentHeight)
+		return panelHeight
+	case ScreenAnalysis:
 		return contentHeight
 	}
 	return contentHeight

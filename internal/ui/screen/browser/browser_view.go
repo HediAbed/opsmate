@@ -81,8 +81,8 @@ func (m BrowserModel) AnalysisOverlayBounds(totalHeight int) (topOffset, panelHe
 	if errBan := m.renderErrBanner(); errBan != "" {
 		topOffset += lipgloss.Height(errBan)
 	}
-	bottomOffset = lipgloss.Height(m.renderStatusLine()) + lipgloss.Height(m.renderHelpBar())
-	return component.AnalysisOverlayBounds(totalHeight, topOffset, bottomOffset)
+	panelHeight = tablePanelSize(m.width, m.browserContentHeight()).Height
+	return component.AnalysisOverlayBounds(totalHeight, topOffset, totalHeight-topOffset-panelHeight)
 }
 
 func (m BrowserModel) renderTitleBar() string {

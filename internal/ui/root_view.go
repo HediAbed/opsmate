@@ -42,7 +42,9 @@ func (m RootModel) renderContent() string {
 	footer := m.renderRootFooter()
 	contentHeight := max(rootMinimumContentHeight, m.height-lipgloss.Height(footer))
 	palette := m.renderCommandPalette()
-	contentHeight = max(rootMinimumContentHeight, contentHeight-lipgloss.Height(palette))
+	if palette != "" {
+		contentHeight = max(rootMinimumContentHeight, contentHeight-lipgloss.Height(palette))
+	}
 
 	if overlay, visible := m.renderActiveRootOverlay(contentHeight); visible {
 		return lipgloss.JoinVertical(lipgloss.Left, overlay, footer)
@@ -150,7 +152,9 @@ func (m RootModel) analysisPanelOverlayOffsets(height int) (int, int) {
 		topOffset, _, bottomOffset = m.helm.AnalysisOverlayBounds(height)
 	case ScreenCRDs:
 		topOffset, _, bottomOffset = m.crds.AnalysisOverlayBounds(height)
-	case ScreenDashboard, ScreenAnalysis:
+	case ScreenDashboard:
+		topOffset, _, bottomOffset = m.dashboard.AnalysisOverlayBounds(height)
+	case ScreenAnalysis:
 	}
 	return topOffset, bottomOffset
 }

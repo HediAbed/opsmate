@@ -21,7 +21,7 @@ func (m AnalysisPanelModel) View() string {
 	innerHeight := m.innerHeight()
 	body := lipgloss.JoinVertical(lipgloss.Left,
 		m.titleLine(innerWidth),
-		m.responseContent(innerWidth, innerHeight),
+		m.responseContent(innerWidth, m.responseViewportHeight()),
 		m.inputBar(innerWidth),
 		m.helpView(),
 	)
@@ -157,7 +157,7 @@ func sanitizeRendered(value string) string {
 
 func (m *AnalysisPanelModel) recalcViewport() {
 	iw := m.innerWidth()
-	vpHeight := max(analysisPanelMinimumViewportHeight, m.innerHeight()-analysisPanelFixedContentRows)
+	vpHeight := m.responseViewportHeight()
 
 	m.responseView.SetWidth(max(analysisPanelMinimumContentWidth, iw))
 	m.responseView.SetHeight(vpHeight)
@@ -271,6 +271,10 @@ func (m AnalysisPanelModel) innerWidth() int {
 
 func (m AnalysisPanelModel) innerHeight() int {
 	return max(analysisPanelMinimumInnerHeight, m.height-analysisPanelOuterBorderChrome)
+}
+
+func (m AnalysisPanelModel) responseViewportHeight() int {
+	return max(analysisPanelMinimumViewportHeight, m.innerHeight()-analysisPanelFixedContentRows)
 }
 
 func (m *AnalysisPanelModel) setLastQuery(query string) {

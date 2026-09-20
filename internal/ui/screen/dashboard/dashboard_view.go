@@ -36,6 +36,17 @@ func (m DashboardModel) View() string {
 	return body + "\n" + sections.help
 }
 
+func (m DashboardModel) AnalysisOverlayBounds(totalHeight int) (topOffset, panelHeight, bottomOffset int) {
+	sections := m.renderDashboardSections()
+	topOffset = lipgloss.Height(sections.title)
+	if sections.errorBanner != "" {
+		topOffset += lipgloss.Height(sections.errorBanner)
+	}
+	topOffset += lipgloss.Height(sections.overview)
+	bodyHeight := min(lipgloss.Height(m.composeDashboardBody(sections)), totalHeight-lipgloss.Height(sections.help))
+	return component.AnalysisOverlayBounds(totalHeight, topOffset, totalHeight-bodyHeight)
+}
+
 func (m DashboardModel) renderDashboardSections() dashboardSections {
 	sections := dashboardSections{
 		title:        m.renderTitleBar(m.width),

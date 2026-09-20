@@ -9,9 +9,17 @@ func TestAnalysisOverlayBoundsKeepsOffsetsWhenPanelFits(t *testing.T) {
 	}
 }
 
-func TestAnalysisOverlayBoundsClampsToMinimumPanelHeight(t *testing.T) {
-	top, height, bottom := AnalysisOverlayBounds(8, 4, 4)
-	if top != 4 || height != MinimumAnalysisPanelHeight || bottom != 4 {
-		t.Fatalf("AnalysisOverlayBounds(8, 4, 4) = (%d, %d, %d), want (4, %d, 4)", top, height, bottom, MinimumAnalysisPanelHeight)
+func TestAnalysisOverlayBoundsNeverExceedTheAvailableHeight(t *testing.T) {
+	for _, total := range []int{6, 8, 12, 40} {
+		top, height, bottom := AnalysisOverlayBounds(total, 4, 4)
+		if height < MinimumAnalysisPanelHeight {
+			t.Errorf("total %d: panel height %d is below the %d row minimum", total, height, MinimumAnalysisPanelHeight)
+		}
+		if total >= MinimumAnalysisPanelHeight && top+height+bottom != total {
+			t.Errorf("total %d: bounds %d/%d/%d do not fill the column exactly", total, top, height, bottom)
+		}
+		if top < 0 || bottom < 0 {
+			t.Errorf("total %d: negative offsets %d/%d", total, top, bottom)
+		}
 	}
 }
