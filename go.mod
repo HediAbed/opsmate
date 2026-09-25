@@ -11,14 +11,14 @@ require (
 	github.com/charmbracelet/colorprofile v0.4.3
 	github.com/charmbracelet/x/ansi v0.11.8
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
-	golang.org/x/sync v0.22.0
-	helm.sh/helm/v4 v4.2.4
+	golang.org/x/sync v0.23.0
+	helm.sh/helm/v4 v4.3.0
 	k8s.io/api v0.37.0
 	k8s.io/apiextensions-apiserver v0.37.0
 	k8s.io/apimachinery v0.37.0
 	k8s.io/client-go v0.37.0
 	k8s.io/metrics v0.37.0
-	k8s.io/streaming v0.37.0
+	k8s.io/streaming v0.37.1
 	sigs.k8s.io/yaml v1.6.0
 )
 
@@ -80,7 +80,7 @@ require (
 	github.com/yuin/goldmark v1.8.5 // indirect
 	github.com/yuin/goldmark-emoji v1.0.5 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
-	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
